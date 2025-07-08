@@ -1616,3 +1616,496 @@ window.signInUser = signInUser;
 window.signOutUser = signOutUser;
 
 console.log('🚀 FreshMart Customer App with Supabase integration fully loaded!');
+
+<script>
+    // Customer management functions
+    let currentCustomer = null;
+    
+    async function checkReturningCustomer() {
+        const phone = document.getElementById('customerPhone').value.trim();
+        if (!phone || phone.length < 10) return;
+        
+        try {
+            // Check if customer exists in Supabase
+            const { data: customer, error } = await supabase
+                .from('customers')
+                .select('*')
+                .eq('phone', phone)
+                .single();
+            
+            if (!error && customer) {
+                currentCustomer = customer;
+                showReturningCustomerInfo(customer);
+                await loadCustomerAddresses(customer.id);
+            } else {
+                hideReturningCustomerInfo();
+            }
+        } catch (error) {
+            console.error('Error checking customer:', error);
+        }
+    }
+    
+    function showReturningCustomerInfo(customer) {
+        document.getElementById('customerRecognition').style.display = 'block';
+        document.getElementById('returningCustomerName').textContent = customer.name;
+        
+        // Pre-fill form with saved data
+        document.getElementById('customerName').value = customer.name;
+        document.getElementById('customerEmail').value = customer.email || '';
+        
+        // Show customer menu in header
+        document.getElementById('customerMenu').style.display = 'block';
+        document.getElementById('customerName').textContent = customer.name;
+    }
+    
+    function hideReturningCustomerInfo() {
+        document.getElementById('customerRecognition').style.display = 'none';
+        document.getElementById('savedAddresses').style.display = 'none';
+        currentCustomer = null;
+    }
+    
+    function useNewCustomerInfo() {
+        hideReturningCustomerInfo();
+        document.getElementById('customerName').value = '';
+        document.getElementById('customerEmail').value = '';
+        document.getElementById('customerPhone').focus();
+    }
+    
+    async function loadCustomerAddresses(customerId) {
+        try {
+            const { data: addresses, error } = await supabase
+                .from('customer_addresses')
+                .select('*')
+                .eq('customer_id', customerId);
+            
+            if (!error && addresses.length > 0) {
+                showSavedAddresses(addresses);
+            }
+        } catch (error) {
+            console.error('Error loading addresses:', error);
+        }
+    }
+    
+    function showSavedAddresses(addresses) {
+        const addressOptions = document.getElementById('addressOptions');
+        addressOptions.innerHTML = addresses.map(addr => `
+            <label class="address-option">
+                <input type="radio" name="savedAddress" value="${addr.id}" 
+                       onchange="selectSavedAddress('${addr.address}')">
+                <div class="address-details">
+                    <strong>${addr.label || 'Address'}</strong>
+                    <p>${addr.address}</p>
+                </div>
+            </label>
+        `).join('');
+        
+        document.getElementById('savedAddresses').style.display = 'block';
+    }
+    
+    function selectSavedAddress(address) {
+        document.getElementById('deliveryAddress').value = address;
+    }
+    
+    function useNewAddress() {
+        document.querySelectorAll('input[name="savedAddress"]').forEach(radio => {
+            radio.checked = false;
+        });
+        document.getElementById('deliveryAddress').value = '';
+        document.getElementById('deliveryAddress').focus();
+    }
+    
+    async function saveCustomerData(orderData) {
+        if (!document.getElementById('saveCustomerInfo').checked) return;
+        
+        try {
+                        // Create or update customer
+            const customerData = {
+                phone: orderData.customer_phone,
+                name: orderData.customer_name,
+                email: orderData.customer_email,
+                last_order_date: new Date().toISOString()
+            };
+            
+            const { data: customer, error: customerError } = await supabase
+                .from('customers')
+                .upsert(customerData, { 
+                    onConflict: 'phone',
+                    ignoreDuplicates: false 
+                })
+                .select()
+                .single();
+            
+            if (customerError) throw customerError;
+            
+            // Save delivery address if it's a delivery order and save option is checked
+            if (orderData.delivery_type === 'delivery' && 
+                document.getElementById('saveDeliveryAddress').checked &&
+                orderData.delivery_address) {
+                
+                // Check if address already exists
+                const { data: existingAddress } = await supabase
+                    .from('customer_addresses')
+                    .select('id')
+                    .eq('customer_id', customer.id)
+                    .eq('address', orderData.delivery_address)
+                    .single();
+                
+                if (!existingAddress) {
+                    await supabase
+                        .from('customer_addresses')
+                        .insert([{
+                            customer_id: customer.id,
+                            address: orderData.delivery_address,
+                            label: 'Home', // Default label
+                            is_default: false
+                        }]);
+                }
+            }
+            
+            currentCustomer = customer;
+            
+        } catch (error) {
+            console.error('Error saving customer data:', error);
+        }
+    }
+    
+    async function loadOrderHistoryByPhone() {
+        const phone = document.getElementById('orderLookupPhone').value.trim();
+        if (!phone) {
+            showNotification('Please enter your phone number', 'warning');
+            return;
+        }
+        
+        try {
+            const { data: orders, error } = await supabase
+                .from('orders')
+                .select(`
+                    *,
+                    order_items (
+                        product_name,
+                        quantity,
+                        price
+                    )
+                `)
+                .eq('customer_phone', phone)
+                .order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            displayOrderHistory(orders);
+            
+        } catch (error) {
+            console.error('Error loading order history:', error);
+            showNotification('Error loading order history', 'error');
+        }
+    }
+    
+    function displayOrderHistory(orders) {
+        const orderHistoryContainer = document.getElementById('orderHistory');
+        
+        if (orders.length === 0) {
+            orderHistoryContainer.innerHTML = `
+                <div class="no-orders">
+                    <i class="fas fa-shopping-bag"></i>
+                    <h3>No Orders Found</h3>
+                    <p>No orders found for this phone number.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        orderHistoryContainer.innerHTML = orders.map(order => `
+            <div class="order-history-item">
+                <div class="order-header">
+                    <div class="order-id">Order #${order.id}</div>
+                    <div class="order-status status-${order.status}">${order.status}</div>
+                </div>
+                <div class="order-details">
+                    <div class="order-date">${new Date(order.created_at).toLocaleDateString()}</div>
+                    <div class="order-location">${order.location.replace('-', ' ')}</div>
+                    <div class="order-type">${order.delivery_type}</div>
+                    <div class="order-total">₦${order.total.toLocaleString()}</div>
+                </div>
+                <div class="order-items">
+                    ${order.order_items.map(item => `
+                        <div class="order-item">
+                            ${item.quantity}x ${item.product_name}
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="order-actions">
+                    <button class="btn-reorder" onclick="reorderItems(${order.id})">
+                        <i class="fas fa-redo"></i> Reorder
+                    </button>
+                    <button class="btn-track" onclick="trackSpecificOrder(${order.id})">
+                        <i class="fas fa-map-marker-alt"></i> Track
+                    </button>
+                    <button class="btn-whatsapp" onclick="contactAboutOrder(${order.id})">
+                        <i class="fab fa-whatsapp"></i> Contact
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async function trackOrderByInput() {
+        const input = document.getElementById('trackingInput').value.trim();
+        if (!input) {
+            showNotification('Please enter order ID or phone number', 'warning');
+            return;
+        }
+        
+        try {
+            let query = supabase.from('orders').select(`
+                *,
+                order_items (
+                    product_name,
+                    quantity,
+                    price
+                )
+            `);
+            
+            // Check if input is numeric (order ID) or phone number
+            if (/^\d+$/.test(input)) {
+                query = query.eq('id', parseInt(input));
+            } else {
+                query = query.eq('customer_phone', input);
+            }
+            
+            const { data: orders, error } = await query.order('created_at', { ascending: false });
+            
+            if (error) throw error;
+            
+            if (orders.length === 0) {
+                document.getElementById('trackingResults').innerHTML = `
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        <h3>No Orders Found</h3>
+                        <p>No orders found for "${input}"</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            // Show tracking results
+            displayTrackingResults(orders);
+            
+        } catch (error) {
+            console.error('Error tracking order:', error);
+            showNotification('Error tracking order', 'error');
+        }
+    }
+    
+    function displayTrackingResults(orders) {
+        const trackingResults = document.getElementById('trackingResults');
+        
+        trackingResults.innerHTML = orders.map(order => `
+            <div class="tracking-result">
+                <div class="tracking-header">
+                    <h4>Order #${order.id}</h4>
+                    <span class="order-date">${new Date(order.created_at).toLocaleDateString()}</span>
+                </div>
+                
+                <div class="tracking-status">
+                    <div class="status-timeline">
+                        <div class="status-step ${['pending', 'confirmed', 'processing', 'ready', 'delivered'].includes(order.status) ? 'completed' : ''} ${order.status === 'pending' ? 'current' : ''}">
+                            <div class="status-icon"><i class="fas fa-clock"></i></div>
+                            <div class="status-label">Order Placed</div>
+                        </div>
+                        <div class="status-step ${['confirmed', 'processing', 'ready', 'delivered'].includes(order.status) ? 'completed' : ''} ${order.status === 'confirmed' ? 'current' : ''}">
+                            <div class="status-icon"><i class="fas fa-check"></i></div>
+                            <div class="status-label">Confirmed</div>
+                        </div>
+                        <div class="status-step ${['processing', 'ready', 'delivered'].includes(order.status) ? 'completed' : ''} ${order.status === 'processing' ? 'current' : ''}">
+                            <div class="status-icon"><i class="fas fa-cog"></i></div>
+                            <div class="status-label">Processing</div>
+                        </div>
+                        <div class="status-step ${['ready', 'delivered'].includes(order.status) ? 'completed' : ''} ${order.status === 'ready' ? 'current' : ''}">
+                            <div class="status-icon"><i class="fas fa-box"></i></div>
+                            <div class="status-label">Ready</div>
+                        </div>
+                        <div class="status-step ${order.status === 'delivered' ? 'completed current' : ''}">
+                            <div class="status-icon"><i class="fas fa-truck"></i></div>
+                            <div class="status-label">${order.delivery_type === 'delivery' ? 'Delivered' : 'Picked Up'}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="order-summary">
+                    <p><strong>Customer:</strong> ${order.customer_name}</p>
+                    <p><strong>Location:</strong> ${order.location.replace('-', ' ')}</p>
+                    <p><strong>Type:</strong> ${order.delivery_type}</p>
+                    <p><strong>Total:</strong> ₦${order.total.toLocaleString()}</p>
+                </div>
+                
+                <div class="tracking-actions">
+                    <button class="btn-whatsapp" onclick="contactAboutOrder(${order.id})">
+                        <i class="fab fa-whatsapp"></i> Contact Store
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+    
+    async function contactAboutOrder(orderId) {
+        try {
+            const { data: order, error } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('id', orderId)
+                .single();
+            
+            if (error) throw error;
+            
+            const locationInfo = locationData[order.location];
+            const whatsappNumber = locationInfo.phone.replace('+', '');
+            
+            const message = `Hello! I'm inquiring about my order #${orderId}. Could you please provide an update on the status? Thank you!`;
+            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(message)}`;
+            
+            window.open(whatsappUrl, '_blank');
+            
+        } catch (error) {
+            console.error('Error contacting about order:', error);
+            showNotification('Error loading order details', 'error');
+        }
+    }
+    
+    function showOrderTracking() {
+        document.getElementById('orderTrackingModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+    }
+    
+    function showOrderHistory() {
+        document.getElementById('orderHistoryModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+        
+        // Auto-fill phone if customer is recognized
+        if (currentCustomer) {
+            document.getElementById('orderLookupPhone').value = currentCustomer.phone;
+            loadOrderHistoryByPhone();
+        }
+    }
+    
+    function showCustomerProfile() {
+        if (!currentCustomer) {
+            showNotification('Please enter your phone number during checkout to access your profile', 'info');
+            return;
+        }
+        
+        document.getElementById('customerProfileModal').classList.add('active');
+        document.getElementById('modalOverlay').classList.add('active');
+        loadCustomerProfile();
+    }
+    
+    async function loadCustomerProfile() {
+        if (!currentCustomer) return;
+        
+        try {
+            // Load customer info
+            document.getElementById('customerProfileInfo').innerHTML = `
+                <div class="profile-item">
+                    <label>Name:</label>
+                    <span>${currentCustomer.name}</span>
+                </div>
+                <div class="profile-item">
+                    <label>Phone:</label>
+                    <span>${currentCustomer.phone}</span>
+                </div>
+                <div class="profile-item">
+                    <label>Email:</label>
+                    <span>${currentCustomer.email || 'Not provided'}</span>
+                </div>
+                <div class="profile-item">
+                    <label>Customer Since:</label>
+                    <span>${new Date(currentCustomer.created_at).toLocaleDateString()}</span>
+                </div>
+            `;
+            
+            // Load saved addresses
+            const { data: addresses, error: addressError } = await supabase
+                .from('customer_addresses')
+                .select('*')
+                .eq('customer_id', currentCustomer.id);
+            
+            if (!addressError) {
+                document.getElementById('savedAddressesList').innerHTML = addresses.length > 0 ? 
+                    addresses.map(addr => `
+                        <div class="saved-address">
+                            <strong>${addr.label || 'Address'}</strong>
+                            <p>${addr.address}</p>
+                        </div>
+                    `).join('') : '<p>No saved addresses</p>';
+            }
+            
+            // Load order statistics
+            const { data: orderStats, error: statsError } = await supabase
+                .rpc('get_customer_stats', { customer_phone: currentCustomer.phone });
+            
+            if (!statsError && orderStats) {
+                document.getElementById('customerOrderStats').innerHTML = `
+                    <div class="stat-item">
+                        <label>Total Orders:</label>
+                        <span>${orderStats.total_orders || 0}</span>
+                    </div>
+                    <div class="stat-item">
+                        <label>Total Spent:</label>
+                        <span>₦${(orderStats.total_spent || 0).toLocaleString()}</span>
+                    </div>
+                    <div class="stat-item">
+                        <label>Average Order:</label>
+                        <span>₦${(orderStats.average_order || 0).toLocaleString()}</span>
+                    </div>
+                `;
+            }
+            
+        } catch (error) {
+            console.error('Error loading customer profile:', error);
+        }
+    }
+    
+    function toggleCustomerDropdown() {
+        const dropdown = document.getElementById('customerDropdown');
+        dropdown.classList.toggle('active');
+    }
+    
+    function clearCustomerData() {
+        currentCustomer = null;
+        document.getElementById('customerMenu').style.display = 'none';
+        showNotification('Customer data cleared', 'info');
+    }
+    
+    function closeModal(modalId) {
+        document.getElementById(modalId).classList.remove('active');
+        document.getElementById('modalOverlay').classList.remove('active');
+    }
+    
+    function closeAllModals() {
+        document.querySelectorAll('.modal').forEach(modal => {
+            modal.classList.remove('active');
+        });
+        document.getElementById('modalOverlay').classList.remove('active');
+    }
+    
+    // Update the existing checkout submission to save customer data
+    const originalHandleCheckoutSubmission = window.handleCheckoutSubmission;
+    window.handleCheckoutSubmission = async function(event) {
+        event.preventDefault();
+        
+        // Get form data
+        const orderData = {
+            customer_name: document.getElementById('customerName').value,
+            customer_phone: document.getElementById('customerPhone').value,
+            customer_email: document.getElementById('customerEmail').value,
+            delivery_type: isDeliveryMode ? 'delivery' : 'pickup',
+            delivery_address: isDeliveryMode ? document.getElementById('deliveryAddress').value : null,
+            // ... other order data
+        };
+        
+        // Save customer data first
+        await saveCustomerData(orderData);
+        
+        // Then proceed with original checkout logic
+        return originalHandleCheckoutSubmission.call(this, event);
+    };
+</script>
