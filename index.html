@@ -1,1 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FreshMart - Multi-Location Supermarket</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <meta name="description" content="Fresh groceries delivered to your door from multiple locations across Lagos">
+    <meta name="keywords" content="supermarket, grocery, delivery, Lagos, fresh food">
+    <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#3498db">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span>FreshMart</span>
+                </div>
+                
+                <div class="header-controls">
+                    <div class="location-selector">
+                        <i class="fas fa-map-marker-alt"></i>
+                        <select id="locationSelect">
+                            <option value="">Select Location</option>
+                            <option value="ikeja" data-phone="2348123456001" data-address="123 Ikeja Way, Lagos State">Ikeja Branch</option>
+                            <option value="victoria-island" data-phone="2348123456002" data-address="456 Victoria Island, Lagos State">Victoria Island Branch</option>
+                            <option value="surulere" data-phone="2348123456003" data-address="789 Surulere Road, Lagos State">Surulere Branch</option>
+                            <option value="lekki" data-phone="2348123456004" data-address="321 Lekki Phase 1, Lagos State">Lekki Branch</option>
+                            <option value="ajah" data-phone="2348123456005" data-address="654 Ajah Express, Lagos State">Ajah Branch</option>
+                            <option value="yaba" data-phone="2348123456006" data-address="987 Yaba College Road, Lagos State">Yaba Branch</option>
+                        </select>
+                    </div>
+                    
+                    <div class="delivery-toggle">
+                        <label class="switch">
+                            <input type="checkbox" id="deliveryToggle">
+                            <span class="slider"></span>
+                        </label>
+                        <span class="delivery-label">Delivery</span>
+                    </div>
+                    
+                    <div class="refresh-controls">
+                        <button class="refresh-btn" onclick="refreshProductData()" title="Refresh product data">
+                            <i class="fas fa-sync-alt"></i>
+                            <span class="refresh-text">Refresh</span>
+                        </button>
+                    </div>
+                    
+                    <div class="cart-icon" onclick="toggleCart()">
+                        <i class="fas fa-shopping-bag"></i>
+                        <span class="cart-count" id="cartCount">0</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>Fresh Groceries Delivered to Your Door</h1>
+                <p>Shop from multiple locations with real-time inventory and fast delivery</p>
+                <div class="hero-features">
+                    <div class="feature">
+                        <i class="fas fa-truck"></i>
+                        <span>Fast Delivery</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-store"></i>
+                        <span>6 Locations</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-leaf"></i>
+                        <span>Fresh Products</span>
+                    </div>
+                    <div class="feature">
+                        <i class="fas fa-clock"></i>
+                        <span>Real-time Stock</span>
+                    </div>
+                </div>
+                <div class="hero-cta">
+                    <button class="cta-btn" onclick="scrollToProducts()">
+                        <i class="fas fa-shopping-cart"></i>
+                        Start Shopping
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Store Status Banner -->
+    <section class="store-status" id="storeStatus" style="display: none;">
+        <div class="container">
+            <div class="status-content">
+                <div class="status-info">
+                    <i class="fas fa-info-circle"></i>
+                    <span id="statusMessage">Store information will appear here</span>
+                </div>
+                <div class="status-actions">
+                    <span class="store-hours" id="storeHours">Mon-Sun: 8:00 AM - 10:00 PM</span>
+                    <a href="#" class="store-phone" id="storePhone">
+                        <i class="fas fa-phone"></i>
+                        Call Store
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Filters Section -->
+    <section class="filters-section">
+        <div class="container">
+            <div class="filters">
+                <div class="search-box">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="searchFilter" placeholder="Search products...">
+                </div>
+                
+                <div class="filter-group">
+                    <select id="categoryFilter">
+                        <option value="">All Categories</option>
+                        <option value="groceries">Groceries</option>
+                        <option value="dairy">Dairy</option>
+                        <option value="meat">Meat & Poultry</option>
+                        <option value="household">Household</option>
+                        <option value="electronics">Electronics</option>
+                        <option value="grills">Grills & Outdoor</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <select id="availabilityFilter">
+                        <option value="">All Items</option>
+                        <option value="in-stock">In Stock</option>
+                        <option value="low-stock">Low Stock</option>
+                        <option value="out-of-stock">Out of Stock</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <select id="sortFilter">
+                        <option value="name">Sort by Name</option>
+                        <option value="price-low">Price: Low to High</option>
+                        <option value="price-high">Price: High to Low</option>
+                        <option value="stock">Stock Level</option>
+                        <option value="popularity">Most Popular</option>
+                    </select>
+                </div>
+                
+                <div class="filter-group">
+                    <button class="clear-filters-btn" onclick="clearAllFilters()">
+                        <i class="fas fa-times"></i>
+                        Clear Filters
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Products Section -->
+    <section class="products-section" id="productsSection">
+        <div class="container">
+            <div class="section-header">
+                <h2>Our Products</h2>
+                <div class="section-info">
+                    <p id="locationStatus">Please select a location to view products</p>
+                    <div class="sync-indicator" id="syncIndicator" style="display: none;">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>Syncing with store...</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="products-stats" id="productsStats" style="display: none;">
+                <div class="stat-item">
+                    <span class="stat-label">Total Products:</span>
+                    <span class="stat-value" id="totalProductsCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">In Stock:</span>
+                    <span class="stat-value" id="inStockCount">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Low Stock:</span>
+                    <span class="stat-value" id="lowStockCount">0</span>
+                </div>
+            </div>
+            
+            <div class="product-grid" id="productGrid">
+                <!-- Products will be populated here -->
+            </div>
+            
+            <div class="load-more-section" id="loadMoreSection" style="display: none;">
+                <button class="load-more-btn" onclick="loadMoreProducts()">
+                    <i class="fas fa-plus"></i>
+                    Load More Products
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cart Sidebar -->
+    <div class="cart-sidebar" id="cartSidebar">
+        <div class="cart-header">
+            <h3><i class="fas fa-shopping-bag"></i> Your Cart</h3>
+            <button class="close-cart" onclick="toggleCart()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="delivery-info" id="deliveryInfo">
+            <div class="delivery-option">
+                <i class="fas fa-store"></i>
+                <span>Pickup - FREE</span>
+            </div>
+        </div>
+        
+        <div class="cart-items" id="cartItems">
+            <div class="empty-cart">
+                <i class="fas fa-shopping-cart"></i>
+                <p>Your cart is empty</p>
+                <small>Add items to get started</small>
+            </div>
+        </div>
+        
+        <div class="cart-summary" id="cartSummary" style="display: none;">
+            <div class="summary-row">
+                <span>Subtotal:</span>
+                <span id="subtotal">₦0</span>
+            </div>
+            <div class="summary-row">
+                <span>Delivery Fee:</span>
+                <span id="deliveryFee">₦0</span>
+            </div>
+            <div class="summary-row total">
+                <span>Total:</span>
+                <span id="totalAmount">₦0</span>
+            </div>
+            
+            <button class="checkout-btn" id="checkoutBtn" onclick="showCheckoutForm()">
+                <i class="fas fa-shopping-cart"></i>
+                Proceed to Checkout
+            </button>
+        </div>
+    </div>
+
+    <!-- Checkout Form Modal -->
+    <div class="checkout-modal" id="checkoutModal">
+        <div class="checkout-content">
+            <div class="checkout-header">
+                <h3><i class="fas fa-clipboard-list"></i> Complete Your Order</h3>
+                <button class="close-checkout" onclick="closeCheckoutForm()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="checkoutForm">
+                <div class="checkout-section">
+                    <h4><i class="fas fa-user"></i> Contact Information</h4>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name *</label>
+                            <input type="text" id="customerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number *</label>
+                            <input type="tel" id="customerPhone" required placeholder="+234">
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email (Optional)</label>
+                        <input type="email" id="customerEmail" placeholder="your@email.com">
+                    </div>
+                </div>
+
+                <div class="checkout-section" id="deliverySection">
+                    <h4><i class="fas fa-truck"></i> Delivery Information</h4>
+                    <div class="form-group">
+                        <label>Delivery Address *</label>
+                        <textarea id="deliveryAddress" rows="3" placeholder="Enter your full delivery address"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Delivery Instructions (Optional)</label>
+                        <textarea id="deliveryInstructions" rows="2" placeholder="Any special delivery instructions"></textarea>
+                    </div>
+                </div>
+
+                <div class="checkout-section" id="pickupSection" style="display: none;">
+                    <h4><i class="fas fa-store"></i> Pickup Information</h4>
+                    <div class="pickup-info">
+                        <i class="fas fa-store"></i>
+                        <div>
+                            <strong id="pickupLocationName">Selected Store</strong>
+                            <p id="pickupLocationAddress">Store address will appear here</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Preferred Pickup Time</label>
+                        <select id="pickupTime">
+                            <option value="">Select preferred time</option>
+                            <option value="morning">Morning (9AM - 12PM)</option>
+                            <option value="afternoon">Afternoon (12PM - 4PM)</option>
+                            <option value="evening">Evening (4PM - 7PM)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Special Notes (Optional)</label>
+                        <textarea id="pickupNotes" rows="2" placeholder="Any special instructions for pickup"></textarea>
+                    </div>
+                </div>
+
+                <div class="checkout-section">
+                    <h4><i class="fas fa-receipt"></i> Order Summary</h4>
+                    <div id="checkoutOrderSummary"></div>
+                </div>
+
+                <div class="checkout-actions">
+                    <button type="button" class="btn-secondary" onclick="closeCheckoutForm()">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Cart
+                    </button>
+                    <button type="submit" class="btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i>
+                        Complete Order via WhatsApp
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cart Overlay -->
+    <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
+
+    <!-- Notification Container -->
+    <div class="notification-container" id="notificationContainer"></div>
+
+    <!-- Update Indicator -->
+    <div class="update-indicator" id="updateIndicator" style="display: none;">
+        <i class="fas fa-sync-alt"></i>
+        <span>Products updated</span>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="quick-actions-customer" id="quickActionsCustomer">
+        <button class="quick-action-btn" onclick="scrollToTop()" title="Back to top">
+            <i class="fas fa-arrow-up"></i>
+        </button>
+        <button class="quick-action-btn" onclick="toggleCart()" title="View cart">
+            <i class="fas fa-shopping-cart"></i>
+            <span class="quick-cart-count" id="quickCartCount">0</span>
+        </button>
+                <button class="quick-action-btn" onclick="refreshProductData()" title="Refresh products">
+            <i class="fas fa-sync-alt"></i>
+        </button>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>FreshMart</h4>
+                    <p>Your trusted supermarket with multiple locations across Lagos.</p>
+                    <div class="social-links">
+                        <a href="#" class="social-link" title="Facebook">
+                            <i class="fab fa-facebook"></i>
+                        </a>
+                        <a href="#" class="social-link" title="Instagram">
+                            <i class="fab fa-instagram"></i>
+                        </a>
+                        <a href="#" class="social-link" title="Twitter">
+                            <i class="fab fa-twitter"></i>
+                        </a>
+                        <a href="#" class="social-link" title="WhatsApp">
+                            <i class="fab fa-whatsapp"></i>
+                        </a>
+                    </div>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="#about">About Us</a></li>
+                        <li><a href="#contact">Contact</a></li>
+                        <li><a href="#locations">Our Locations</a></li>
+                        <li><a href="#delivery">Delivery Info</a></li>
+                        <li><a href="#terms">Terms & Conditions</a></li>
+                        <li><a href="#privacy">Privacy Policy</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Our Locations</h4>
+                    <ul class="locations-list">
+                        <li><i class="fas fa-map-marker-alt"></i> Ikeja Branch</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Victoria Island Branch</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Surulere Branch</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Lekki Branch</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Ajah Branch</li>
+                        <li><i class="fas fa-map-marker-alt"></i> Yaba Branch</li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4>Contact Info</h4>
+                    <div class="contact-info">
+                        <p><i class="fas fa-phone"></i> +234 812 345 6000</p>
+                        <p><i class="fas fa-envelope"></i> info@freshmart.ng</p>
+                        <p><i class="fas fa-clock"></i> Mon-Sun: 8:00 AM - 10:00 PM</p>
+                        <p><i class="fas fa-truck"></i> Free delivery on orders ₦25,000+</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <div class="footer-bottom-content">
+                    <p>&copy; 2025 FreshMart. All rights reserved.</p>
+                    <div class="footer-links">
+                            <a href="admin.html" class="admin-link" id="adminLink" style="display: none;">
+                                <i class="fas fa-cog"></i>
+                                Admin Panel
+                            </a>
+                        <button class="theme-toggle-footer" onclick="toggleTheme()" title="Toggle theme">
+                            <i class="fas fa-moon"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
+        <div class="loading-spinner">
+            <i class="fas fa-spinner fa-spin"></i>
+            <p>Loading products...</p>
+        </div>
+    </div>
+
+    <!-- Offline Indicator -->
+    <div class="offline-indicator" id="offlineIndicator" style="display: none;">
+        <div class="offline-content">
+            <i class="fas fa-wifi"></i>
+            <span>You're offline. Some features may not work.</span>
+            <button onclick="retryConnection()">Retry</button>
+        </div>
+    </div>
+
+    <!-- Install App Banner -->
+    <div class="install-banner" id="installBanner" style="display: none;">
+        <div class="install-content">
+            <div class="install-info">
+                <i class="fas fa-mobile-alt"></i>
+                <div>
+                    <h4>Install FreshMart App</h4>
+                    <p>Get faster access and offline features</p>
+                </div>
+            </div>
+            <div class="install-actions">
+                <button class="install-btn" onclick="installApp()">Install</button>
+                <button class="dismiss-btn" onclick="dismissInstallBanner()">Later</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Service Worker Registration -->
+    <script>
+        // Register Service Worker for PWA functionality
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('ServiceWorker registration successful');
+                    })
+                    .catch(function(err) {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
+            });
+        }
+
+        // PWA Install Prompt
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('installBanner').style.display = 'block';
+        });
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((result) => {
+                    if (result.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    }
+                    deferredPrompt = null;
+                    document.getElementById('installBanner').style.display = 'none';
+                });
+            }
+        }
+
+        function dismissInstallBanner() {
+            document.getElementById('installBanner').style.display = 'none';
+            localStorage.setItem('installBannerDismissed', 'true');
+        }
+
+        // Check if banner was previously dismissed
+        if (localStorage.getItem('installBannerDismissed') === 'true') {
+            document.getElementById('installBanner').style.display = 'none';
+        }
+
+        // Online/Offline Detection
+        window.addEventListener('online', function() {
+            document.getElementById('offlineIndicator').style.display = 'none';
+            showNotification('Connection restored', 'success');
+        });
+
+        window.addEventListener('offline', function() {
+            document.getElementById('offlineIndicator').style.display = 'block';
+            showNotification('You are now offline', 'warning');
+        });
+
+        function retryConnection() {
+            if (navigator.onLine) {
+                document.getElementById('offlineIndicator').style.display = 'none';
+                showNotification('Connection restored', 'success');
+                refreshProductData();
+            } else {
+                showNotification('Still offline. Please check your connection.', 'error');
+            }
+        }
+
+        // Theme Toggle
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            
+            const themeIcon = document.querySelector('.theme-toggle-footer i');
+            themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
+            
+            showNotification(`Switched to ${newTheme} theme`, 'info');
+        }
+
+        // Load saved theme
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-theme', savedTheme);
+        if (savedTheme === 'dark') {
+            document.querySelector('.theme-toggle-footer i').className = 'fas fa-sun';
+        }
+
+        // Scroll to top function
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Scroll to products function
+        function scrollToProducts() {
+            document.getElementById('productsSection').scrollIntoView({
+                behavior: 'smooth'
+            });
+        }
+
+        // Show/hide quick actions based on scroll
+        window.addEventListener('scroll', function() {
+            const quickActions = document.getElementById('quickActionsCustomer');
+            if (window.scrollY > 300) {
+                quickActions.style.display = 'flex';
+            } else {
+                quickActions.style.display = 'none';
+            }
+        });
+
+        // Clear all filters function
+        function clearAllFilters() {
+            document.getElementById('searchFilter').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('availabilityFilter').value = '';
+            document.getElementById('sortFilter').value = 'name';
+            
+            // Trigger filter update
+            applyFilters();
+            showNotification('All filters cleared', 'info');
+        }
+
+        // Load more products function (for pagination)
+        function loadMoreProducts() {
+            const loadMoreBtn = document.querySelector('.load-more-btn');
+            const originalText = loadMoreBtn.innerHTML;
+            
+            loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+            loadMoreBtn.disabled = true;
+            
+            // Simulate loading delay
+            setTimeout(() => {
+                // In a real app, this would load more products from the server
+                loadMoreBtn.innerHTML = originalText;
+                loadMoreBtn.disabled = false;
+                showNotification('More products loaded', 'success');
+            }, 1000);
+        }
+
+        // Enhanced error handling
+        window.addEventListener('error', function(e) {
+            console.error('Global error:', e.error);
+            showNotification('An error occurred. Please refresh the page.', 'error');
+        });
+
+        // Performance monitoring
+        window.addEventListener('load', function() {
+            const loadTime = performance.now();
+            console.log(`Page loaded in ${Math.round(loadTime)}ms`);
+            
+            // Show performance notification for slow loads
+            if (loadTime > 3000) {
+                showNotification('Page loaded slowly. Consider refreshing for better performance.', 'warning');
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Ctrl/Cmd + K to focus search
+            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+                e.preventDefault();
+                document.getElementById('searchFilter').focus();
+            }
+            
+            // Escape to close cart
+            if (e.key === 'Escape') {
+                const cartSidebar = document.getElementById('cartSidebar');
+                if (cartSidebar.classList.contains('open')) {
+                    toggleCart();
+                }
+                
+                const checkoutModal = document.getElementById('checkoutModal');
+                if (checkoutModal.classList.contains('active')) {
+                    closeCheckoutForm();
+                }
+            }
+            
+            // Ctrl/Cmd + R to refresh products
+            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
+                e.preventDefault();
+                refreshProductData();
+            }
+        });
+
+        // Analytics tracking (placeholder)
+        function trackEvent(eventName, eventData) {
+            // In a real app, this would send data to analytics service
+            console.log('Analytics Event:', eventName, eventData);
+        }
+
+        // Track page view
+        trackEvent('page_view', {
+            page: 'home',
+            timestamp: new Date().toISOString()
+        });
+    </script>
+
+    <script src="script.js"></script>
+</body>
+</html>
 
