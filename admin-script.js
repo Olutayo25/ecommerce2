@@ -26,28 +26,90 @@ document.addEventListener('DOMContentLoaded', async function() {
 async function initializeAdminData() {
     try {
         // Check if user is authenticated
-        const { data: { user }, error } = await supabase.auth.getUser();
-        
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+        if (authError) {
+            console.error('Error fetching authenticated user:', authError);
+            // If there's an auth error, proceed as if no user is logged in
+            // This might happen if session is expired or token is invalid
+            toggleAdminFeatures(false); // Hide admin features
+            await initializeSampleData();
+            return; // Exit function
+        }
+
         if (user) {
             currentUser = {
                 id: user.id,
                 email: user.email,
-                role: 'administrator',
                 loginTime: new Date().toISOString()
             };
-            
-            showAdminDashboard();
-            await loadDashboardData();
+
+            // Fetch user profile to get their role
+            const { data: profile, error: profileError } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', currentUser.id)
+                .single(); // Use .single() as there should be only one profile per user ID
+
+            if (profileError) {
+                console.warn('Profile not found or error fetching profile for user:', currentUser.id, profileError);
+                // Default to 'user' role if profile doesn't exist or an error occurs fetching it
+                currentUser.role = 'user';
+                // You might want to automatically create a profile here if it doesn't exist
+                // await supabase.from('profiles').insert([{ id: currentUser.id, full_name: user.email, role: 'user' }]);
+            } else {
+                currentUser.role = profile.role;
+            }
+
+            console.log('User:', currentUser.email, 'Role:', currentUser.role);
+
+            // Toggle UI features based on role
+            toggleAdminFeatures(currentUser.role === 'admin');
+
+            // Proceed with loading dashboard data if user is logged in (regardless of admin role)
+            showAdminDashboard(); // This function should show the base dashboard
+            await loadDashboardData(); // Load actual data for the dashboard
             enableAutoSave();
+
         } else {
-            // Initialize sample data if no data exists
+            // No active user session
+            console.log('No active user session. Showing public/sample data.');
+            toggleAdminFeatures(false); // Hide admin features if no user is logged in
             await initializeSampleData();
         }
     } catch (error) {
-        console.error('Error initializing admin data:', error);
+        console.error('Unhandled error during admin data initialization:', error);
+        toggleAdminFeatures(false); // Hide admin features on unhandled errors
         await initializeSampleData();
     }
 }
+
+// Helper function to manage UI elements based on user role
+function toggleAdminFeatures(isAdmin) {
+    const adminOnlyElements = document.querySelectorAll('.admin-only'); // Elements with class 'admin-only'
+    const nonAdminElements = document.querySelectorAll('.non-admin-only'); // Optional: Elements visible to non-admins
+    const loginPrompt = document.getElementById('loginPrompt'); // Assuming you have a login prompt container
+
+    if (isAdmin) {
+        adminOnlyElements.forEach(el => el.style.display = ''); // Show admin elements
+        nonAdminElements.forEach(el => el.style.display = 'none'); // Hide non-admin specific elements
+        if (loginPrompt) loginPrompt.style.display = 'none'; // Hide login prompt
+    } else {
+        adminOnlyElements.forEach(el => el.style.display = 'none'); // Hide admin elements
+        nonAdminElements.forEach(el => el.style.display = ''); // Show non-admin specific elements (e.g., public view)
+        if (loginPrompt) loginPrompt.style.display = ''; // Show login prompt or 'access denied' message
+        console.warn('Access denied: User is not an admin or not logged in.');
+        // Optionally, redirect to a public page or display a specific "access denied" message
+    }
+    // Ensure the main dashboard view is managed by showAdminDashboard() or similar
+}
+
+// You will also need to define these functions if they don't exist:
+// function showAdminDashboard() { /* ... code to display the main dashboard structure ... */ }
+// async function loadDashboardData() { /* ... code to fetch and display dashboard data ... */ }
+// function enableAutoSave() { /* ... code to set up auto-save functionality ... */ }
+// async function initializeSampleData() { /* ... code to initialize sample data or show public view ... */ }
+// Make sure your HTML elements that are exclusive to admins have the class `admin-only`.
 
 async function initializeSampleData() {
     try {
