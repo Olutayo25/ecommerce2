@@ -1,8 +1,8 @@
 // Supabase Configuration
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = 'https://aydlkdolxygxhmtdxins.supabase.co'
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZGxrZG9seHlneGhtdGR4aW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5NjY5NzMsImV4cCI6MjA2NzU0Mjk3M30.obBDqpr6K40VcQUPkh03ftDXsgIM9X6CDRgZ2hUZrGM'
+const supabaseUrl = 'url'
+const supabaseKey = 'key'
 const supabase = createClient(supabaseUrl, supabaseKey)
 
 // Global Variables (updated)
