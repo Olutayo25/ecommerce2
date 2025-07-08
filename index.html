@@ -11,15 +11,24 @@
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#3498db">
 
-        <!-- Add Supabase CDN -->
+    <!-- Supabase CDN -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     
-    <!-- Add configuration script -->
+    <!-- Supabase Configuration -->
     <script>
-        // Supabase configuration
-        const supabaseUrl = 'https://aydlkdolxygxhmtdxins.supabase.co';
-        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZGxrZG9seHlneGhtdGR4aW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5NjY5NzMsImV4cCI6MjA2NzU0Mjk3M30.obBDqpr6K40VcQUPkh03ftDXsgIM9X6CDRgZ2hUZrGM';
-        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+        // TODO: Replace with your actual Supabase credentials
+        const supabaseUrl = 'https://your-project-id.supabase.co';
+        const supabaseKey = 'your-anon-key-here';
+        
+        // Initialize Supabase client
+        let supabase;
+        try {
+            supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+            console.log('Supabase client initialized');
+        } catch (error) {
+            console.error('Failed to initialize Supabase:', error);
+            showNotification('Database connection failed', 'error');
+        }
     </script>
 </head>
 <body>
@@ -35,21 +44,20 @@
                 <div class="header-controls">
                     <div class="location-selector">
                         <i class="fas fa-map-marker-alt"></i>
-                        <select id="locationSelect">
+                        <select id="locationSelect" onchange="handleLocationChange()">
                             <option value="">Select Location</option>
-                            <!-- Locations will be loaded dynamically from Supabase -->
+                            <!-- Locations will be loaded dynamically -->
                         </select>
                     </div>
                     
                     <div class="delivery-toggle">
                         <label class="switch">
-                            <input type="checkbox" id="deliveryToggle">
+                            <input type="checkbox" id="deliveryToggle" onchange="handleDeliveryToggle()">
                             <span class="slider"></span>
                         </label>
                         <span class="delivery-label">Delivery</span>
                     </div>
                     
-                    <!-- Customer Quick Access (based on phone) -->
                     <div class="customer-menu" id="customerMenu" style="display: none;">
                         <button class="customer-btn" onclick="toggleCustomerDropdown()">
                             <i class="fas fa-user"></i>
@@ -144,11 +152,11 @@
             <div class="filters">
                 <div class="search-box">
                     <i class="fas fa-search"></i>
-                    <input type="text" id="searchFilter" placeholder="Search products...">
+                    <input type="text" id="searchFilter" placeholder="Search products..." oninput="applyFilters()">
                 </div>
                 
                 <div class="filter-group">
-                    <select id="categoryFilter">
+                    <select id="categoryFilter" onchange="applyFilters()">
                         <option value="">All Categories</option>
                         <option value="groceries">Groceries</option>
                         <option value="dairy">Dairy</option>
@@ -160,7 +168,7 @@
                 </div>
                 
                 <div class="filter-group">
-                    <select id="availabilityFilter">
+                    <select id="availabilityFilter" onchange="applyFilters()">
                         <option value="">All Items</option>
                         <option value="in-stock">In Stock</option>
                         <option value="low-stock">Low Stock</option>
@@ -169,7 +177,7 @@
                 </div>
                 
                 <div class="filter-group">
-                    <select id="sortFilter">
+                    <select id="sortFilter" onchange="applyFilters()">
                         <option value="name">Sort by Name</option>
                         <option value="price-low">Price: Low to High</option>
                         <option value="price-high">Price: High to Low</option>
@@ -275,222 +283,212 @@
         </div>
     </div>
 
-<!-- Checkout Form Modal -->
-<div class="checkout-modal" id="checkoutModal">
-    <div class="checkout-content">
-        <div class="checkout-header">
-            <h3><i class="fas fa-clipboard-list"></i> Complete Your Order</h3>
-            <button class="close-checkout" onclick="closeCheckoutForm()">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-        
-        <form id="checkoutForm">
-            <div class="checkout-section">
-                <h4><i class="fas fa-user"></i> Contact Information</h4>
-                
-                <!-- Returning Customer Recognition -->
-                <div class="customer-recognition" id="customerRecognition" style="display: none;">
-                    <div class="welcome-back">
-                        <i class="fas fa-smile"></i>
-                        <span>Welcome back, <strong id="returningCustomerName"></strong>!</span>
-                        <button type="button" class="btn-link" onclick="useNewCustomerInfo()">
-                            Use different info
+    <!-- Checkout Form Modal -->
+    <div class="checkout-modal" id="checkoutModal">
+        <div class="checkout-content">
+            <div class="checkout-header">
+                <h3><i class="fas fa-clipboard-list"></i> Complete Your Order</h3>
+                <button class="close-checkout" onclick="closeCheckoutForm()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            
+            <form id="checkoutForm" onsubmit="submitOrder(event)">
+                <div class="checkout-section">
+                    <h4><i class="fas fa-user"></i> Contact Information</h4>
+                    
+                    <div class="customer-recognition" id="customerRecognition" style="display: none;">
+                        <div class="welcome-back">
+                            <i class="fas fa-smile"></i>
+                            <span>Welcome back, <strong id="returningCustomerName"></strong>!</span>
+                            <button type="button" class="btn-link" onclick="useNewCustomerInfo()">
+                                Use different info
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Full Name *</label>
+                            <input type="text" id="customerName" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Phone Number *</label>
+                            <input type="tel" id="customerPhone" required placeholder="+234" 
+                                   onblur="checkReturningCustomer()">
+                            <small class="form-help">We'll use this to identify you for future orders</small>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Email (Optional)</label>
+                        <input type="email" id="customerEmail" placeholder="your@email.com">
+                        <small class="form-help">For order updates and receipts</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="saveCustomerInfo" checked>
+                            <span class="checkmark"></span>
+                            Save my information for faster checkout next time
+                        </label>
+                    </div>
+                </div>
+
+                <div class="checkout-section" id="deliverySection">
+                    <h4><i class="fas fa-truck"></i> Delivery Information</h4>
+                    
+                    <div class="saved-addresses" id="savedAddresses" style="display: none;">
+                        <label>Use Saved Address:</label>
+                        <div class="address-options" id="addressOptions">
+                        </div>
+                        <button type="button" class="btn-link" onclick="useNewAddress()">
+                            Use new address
                         </button>
                     </div>
-                </div>
-                
-                <div class="form-row">
+                    
                     <div class="form-group">
-                        <label>Full Name *</label>
-                        <input type="text" id="customerName" required>
+                        <label>Delivery Address *</label>
+                        <textarea id="deliveryAddress" rows="3" placeholder="Enter your full delivery address"></textarea>
                     </div>
                     <div class="form-group">
-                        <label>Phone Number *</label>
-                        <input type="tel" id="customerPhone" required placeholder="+234" 
-                               onblur="checkReturningCustomer()">
-                        <small class="form-help">We'll use this to identify you for future orders</small>
+                        <label>Delivery Instructions (Optional)</label>
+                        <textarea id="deliveryInstructions" rows="2" placeholder="Any special delivery instructions"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="saveDeliveryAddress" checked>
+                            <span class="checkmark"></span>
+                            Save this address for future orders
+                        </label>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label>Email (Optional)</label>
-                    <input type="email" id="customerEmail" placeholder="your@email.com">
-                    <small class="form-help">For order updates and receipts</small>
-                </div>
-                
-                <!-- Save Customer Info Option -->
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="saveCustomerInfo" checked>
-                        <span class="checkmark"></span>
-                        Save my information for faster checkout next time
-                    </label>
-                </div>
-            </div>
 
-            <div class="checkout-section" id="deliverySection">
-                <h4><i class="fas fa-truck"></i> Delivery Information</h4>
-                
-                <!-- Saved Addresses for Returning Customers -->
-                <div class="saved-addresses" id="savedAddresses" style="display: none;">
-                    <label>Use Saved Address:</label>
-                    <div class="address-options" id="addressOptions">
-                        <!-- Saved addresses will be populated here -->
+                <div class="checkout-section" id="pickupSection" style="display: none;">
+                    <h4><i class="fas fa-store"></i> Pickup Information</h4>
+                    <div class="pickup-info">
+                        <i class="fas fa-store"></i>
+                        <div>
+                            <strong id="pickupLocationName">Selected Store</strong>
+                            <p id="pickupLocationAddress">Store address will appear here</p>
+                        </div>
                     </div>
-                    <button type="button" class="btn-link" onclick="useNewAddress()">
-                        Use new address
+                    <div class="form-group">
+                        <label>Preferred Pickup Time</label>
+                        <select id="pickupTime">
+                            <option value="">Select preferred time</option>
+                            <option value="morning">Morning (9AM - 12PM)</option>
+                            <option value="afternoon">Afternoon (12PM - 4PM)</option>
+                            <option value="evening">Evening (4PM - 7PM)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Special Notes (Optional)</label>
+                        <textarea id="pickupNotes" rows="2" placeholder="Any special instructions for pickup"></textarea>
+                    </div>
+                </div>
+
+                <div class="checkout-section">
+                    <h4><i class="fas fa-receipt"></i> Order Summary</h4>
+                    <div id="checkoutOrderSummary"></div>
+                </div>
+
+                <div class="checkout-actions">
+                    <button type="button" class="btn-secondary" onclick="closeCheckoutForm()">
+                        <i class="fas fa-arrow-left"></i>
+                        Back to Cart
+                    </button>
+                    <button type="submit" class="btn-whatsapp">
+                        <i class="fab fa-whatsapp"></i>
+                        Complete Order via WhatsApp
                     </button>
                 </div>
-                
-                <div class="form-group">
-                    <label>Delivery Address *</label>
-                    <textarea id="deliveryAddress" rows="3" placeholder="Enter your full delivery address"></textarea>
-                </div>
-                <div class="form-group">
-                    <label>Delivery Instructions (Optional)</label>
-                    <textarea id="deliveryInstructions" rows="2" placeholder="Any special delivery instructions"></textarea>
-                </div>
-                
-                <!-- Save Address Option -->
-                <div class="form-group">
-                    <label class="checkbox-label">
-                        <input type="checkbox" id="saveDeliveryAddress" checked>
-                        <span class="checkmark"></span>
-                        Save this address for future orders
-                    </label>
-                </div>
-            </div>
-
-            <div class="checkout-section" id="pickupSection" style="display: none;">
-                <h4><i class="fas fa-store"></i> Pickup Information</h4>
-                <div class="pickup-info">
-                    <i class="fas fa-store"></i>
-                    <div>
-                        <strong id="pickupLocationName">Selected Store</strong>
-                        <p id="pickupLocationAddress">Store address will appear here</p>
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label>Preferred Pickup Time</label>
-                    <select id="pickupTime">
-                        <option value="">Select preferred time</option>
-                        <option value="morning">Morning (9AM - 12PM)</option>
-                        <option value="afternoon">Afternoon (12PM - 4PM)</option>
-                        <option value="evening">Evening (4PM - 7PM)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label>Special Notes (Optional)</label>
-                    <textarea id="pickupNotes" rows="2" placeholder="Any special instructions for pickup"></textarea>
-                </div>
-            </div>
-
-            <div class="checkout-section">
-                <h4><i class="fas fa-receipt"></i> Order Summary</h4>
-                <div id="checkoutOrderSummary"></div>
-            </div>
-
-            <div class="checkout-actions">
-                <button type="button" class="btn-secondary" onclick="closeCheckoutForm()">
-                    <i class="fas fa-arrow-left"></i>
-                    Back to Cart
-                </button>
-                <button type="submit" class="btn-whatsapp">
-                    <i class="fab fa-whatsapp"></i>
-                    Complete Order via WhatsApp
-                </button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
-</div>
 
-                <!-- Customer Profile Modal -->
-            <div class="modal" id="customerProfileModal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-user"></i> My Information</h3>
-                        <button class="close-btn" onclick="closeModal('customerProfileModal')">
-                            <i class="fas fa-times"></i>
-                        </button>
+    <!-- Customer Profile Modal -->
+    <div class="modal" id="customerProfileModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user"></i> My Information</h3>
+                <button class="close-btn" onclick="closeModal('customerProfileModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="customer-profile-content">
+                    <div class="profile-section">
+                        <h4>Contact Information</h4>
+                        <div class="profile-info" id="customerProfileInfo">
+                        </div>
                     </div>
-                    <div class="modal-body">
-                        <div class="customer-profile-content">
-                            <div class="profile-section">
-                                <h4>Contact Information</h4>
-                                <div class="profile-info" id="customerProfileInfo">
-                                    <!-- Customer info will be loaded here -->
-                                </div>
-                            </div>
-                            
-                            <div class="profile-section">
-                                <h4>Saved Addresses</h4>
-                                <div class="saved-addresses-list" id="savedAddressesList">
-                                    <!-- Saved addresses will be loaded here -->
-                                </div>
-                            </div>
-                            
-                            <div class="profile-section">
-                                <h4>Order Statistics</h4>
-                                <div class="order-stats" id="customerOrderStats">
-                                    <!-- Order statistics will be loaded here -->
-                                </div>
-                            </div>
+                    
+                    <div class="profile-section">
+                        <h4>Saved Addresses</h4>
+                        <div class="saved-addresses-list" id="savedAddressesList">
+                        </div>
+                    </div>
+                    
+                    <div class="profile-section">
+                        <h4>Order Statistics</h4>
+                        <div class="order-stats" id="customerOrderStats">
                         </div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Order History Modal -->
-            <div class="modal" id="orderHistoryModal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-history"></i> My Orders</h3>
-                        <button class="close-btn" onclick="closeModal('orderHistoryModal')">
-                            <i class="fas fa-times"></i>
+        </div>
+    </div>
+    
+    <!-- Order History Modal -->
+    <div class="modal" id="orderHistoryModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-history"></i> My Orders</h3>
+                <button class="close-btn" onclick="closeModal('orderHistoryModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="order-lookup">
+                    <p>Enter your phone number to view your order history:</p>
+                    <div class="lookup-form">
+                        <input type="tel" id="orderLookupPhone" placeholder="+234 phone number">
+                        <button onclick="loadOrderHistoryByPhone()" class="lookup-btn">
+                            <i class="fas fa-search"></i> Find Orders
                         </button>
                     </div>
-                    <div class="modal-body">
-                        <div class="order-lookup">
-                            <p>Enter your phone number to view your order history:</p>
-                            <div class="lookup-form">
-                                <input type="tel" id="orderLookupPhone" placeholder="+234 phone number">
-                                <button onclick="loadOrderHistoryByPhone()" class="lookup-btn">
-                                    <i class="fas fa-search"></i> Find Orders
-                                </button>
-                            </div>
-                        </div>
-                        <div id="orderHistory">
-                            <!-- Order history will be loaded here -->
-                        </div>
-                    </div>
+                </div>
+                <div id="orderHistory">
                 </div>
             </div>
-            
-            <!-- Order Tracking Modal -->
-            <div class="modal" id="orderTrackingModal">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3><i class="fas fa-map-marker-alt"></i> Track Order</h3>
-                        <button class="close-btn" onclick="closeModal('orderTrackingModal')">
-                            <i class="fas fa-times"></i>
+        </div>
+    </div>
+    
+    <!-- Order Tracking Modal -->
+    <div class="modal" id="orderTrackingModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-map-marker-alt"></i> Track Order</h3>
+                <button class="close-btn" onclick="closeModal('orderTrackingModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="tracking-lookup">
+                    <p>Enter your order ID or phone number to track your order:</p>
+                    <div class="lookup-form">
+                        <input type="text" id="trackingInput" placeholder="Order ID or phone number">
+                        <button onclick="trackOrderByInput()" class="lookup-btn">
+                            <i class="fas fa-search"></i> Track
                         </button>
                     </div>
-                    <div class="modal-body">
-                        <div class="tracking-lookup">
-                            <p>Enter your order ID or phone number to track your order:</p>
-                            <div class="lookup-form">
-                                <input type="text" id="trackingInput" placeholder="Order ID or phone number">
-                                <button onclick="trackOrderByInput()" class="lookup-btn">
-                                    <i class="fas fa-search"></i> Track
-                                </button>
-                            </div>
-                        </div>
-                        <div id="trackingResults">
-                            <!-- Tracking results will be loaded here -->
-                        </div>
-                    </div>
+                </div>
+                <div id="trackingResults">
                 </div>
             </div>
+        </div>
+    </div>
 
     <!-- Modal Overlay -->
     <div class="modal-overlay" id="modalOverlay" onclick="closeAllModals()"></div>
@@ -516,7 +514,7 @@
             <i class="fas fa-shopping-cart"></i>
             <span class="quick-cart-count" id="quickCartCount">0</span>
         </button>
-                <button class="quick-action-btn" onclick="refreshProductData()" title="Refresh products">
+        <button class="quick-action-btn" onclick="refreshProductData()" title="Refresh products">
             <i class="fas fa-sync-alt"></i>
         </button>
     </div>
@@ -582,10 +580,10 @@
                 <div class="footer-bottom-content">
                     <p>&copy; 2025 FreshMart. All rights reserved.</p>
                     <div class="footer-links">
-                            <a href="admin.html" class="admin-link" id="adminLink" style="display: none;">
-                                <i class="fas fa-cog"></i>
-                                Admin Panel
-                            </a>
+                        <a href="admin.html" class="admin-link" id="adminLink" style="display: none;">
+                            <i class="fas fa-cog"></i>
+                            Admin Panel
+                        </a>
                         <button class="theme-toggle-footer" onclick="toggleTheme()" title="Toggle theme">
                             <i class="fas fa-moon"></i>
                         </button>
@@ -629,36 +627,1335 @@
         </div>
     </div>
 
-    <!-- Service Worker Registration -->
+    <!-- JavaScript Functions -->
     <script>
-        // Register Service Worker for PWA functionality
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', function() {
-                navigator.serviceWorker.register('/sw.js')
-                    .then(function(registration) {
-                        console.log('ServiceWorker registration successful');
-                    })
-                    .catch(function(err) {
-                        console.log('ServiceWorker registration failed: ', err);
-                    });
+        // Global variables
+        let currentLocation = null;
+        let currentCustomer = null;
+        let cart = [];
+        let products = [];
+        let isDelivery = false;
+
+        // Initialize application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeApp();
+        });
+
+        async function initializeApp() {
+            try {
+                showLoading(true);
+                await testSupabaseConnection();
+                await loadLocations();
+                loadTheme();
+                setupEventListeners();
+                showNotification('Welcome to FreshMart!', 'success');
+            } catch (error) {
+                console.error('Failed to initialize app:', error);
+                showNotification('Failed to initialize app. Please refresh the page.', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Test Supabase connection
+        async function testSupabaseConnection() {
+            try {
+                if (!supabase) {
+                    throw new Error('Supabase client not initialized');
+                }
+                
+                const { data, error } = await supabase.auth.getSession();
+                if (error && error.message.includes('Invalid API key')) {
+                    throw new Error('Invalid Supabase credentials');
+                }
+                
+                console.log('Supabase connection successful');
+                return true;
+            } catch (error) {
+                console.error('Supabase connection failed:', error);
+                showNotification('Database connection failed. Please check your internet connection.', 'error');
+                return false;
+            }
+        }
+
+        // Load locations from Supabase
+        async function loadLocations() {
+            try {
+                const { data, error } = await supabase
+                    .from('locations')
+                    .select('*')
+                    .eq('is_active', true)
+                    .order('name');
+                
+                if (error) throw error;
+                
+                const locationSelect = document.getElementById('locationSelect');
+                locationSelect.innerHTML = '<option value="">Select Location</option>';
+                
+                data.forEach(location => {
+                    const option = document.createElement('option');
+                    option.value = location.id;
+                    option.textContent = location.name;
+                    option.dataset.deliveryFee = location.delivery_fee || 0;
+                    option.dataset.address = location.address || '';
+                    option.dataset.phone = location.phone || '';
+                    locationSelect.appendChild(option);
+                });
+                
+                console.log('Locations loaded successfully');
+            } catch (error) {
+                console.error('Error loading locations:', error);
+                showNotification('Failed to load locations', 'error');
+            }
+        }
+
+        // Handle location change
+        async function handleLocationChange() {
+            const locationSelect = document.getElementById('locationSelect');
+            const locationId = locationSelect.value;
+            
+            if (!locationId) {
+                document.getElementById('locationStatus').textContent = 'Please select a location to view products';
+                document.getElementById('productGrid').innerHTML = '';
+                document.getElementById('productsStats').style.display = 'none';
+                return;
+            }
+            
+            const selectedOption = locationSelect.options[locationSelect.selectedIndex];
+            currentLocation = {
+                id: locationId,
+                name: selectedOption.textContent,
+                deliveryFee: parseFloat(selectedOption.dataset.deliveryFee || 0),
+                address: selectedOption.dataset.address || '',
+                phone: selectedOption.dataset.phone || ''
+            };
+            
+            await loadProducts(locationId);
+            updateStoreStatus();
+            updateDeliveryInfo();
+        }
+
+       ```javascript
+        // Load products by location
+        async function loadProducts(locationId) {
+            try {
+                showLoading(true);
+                document.getElementById('locationStatus').textContent = 'Loading products...';
+
+                const { data, error } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('location_id', locationId)
+                    .eq('is_active', true)
+                    .order('name');
+
+                if (error) throw error;
+
+                products = data;
+                renderProducts(products);
+                updateProductStats();
+                document.getElementById('locationStatus').textContent = `Showing products for ${currentLocation.name}`;
+                showNotification(`Products loaded for ${currentLocation.name}`, 'success');
+
+            } catch (error) {
+                console.error('Error loading products:', error);
+                document.getElementById('productGrid').innerHTML = '<p class="empty-state">Failed to load products. Please try again.</p>';
+                document.getElementById('locationStatus').textContent = `Error loading products for ${currentLocation ? currentLocation.name : 'selected location'}`;
+                showNotification('Failed to load products', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Render products to the grid
+        function renderProducts(productsToRender) {
+            const productGrid = document.getElementById('productGrid');
+            productGrid.innerHTML = ''; // Clear existing products
+
+            if (productsToRender.length === 0) {
+                productGrid.innerHTML = '<p class="empty-state">No products found for this location or filters. Try adjusting your selection.</p>';
+                return;
+            }
+
+            productsToRender.forEach(product => {
+                const productCard = document.createElement('div');
+                productCard.classList.add('product-card');
+
+                let stockStatus = '';
+                let stockClass = '';
+                if (product.stock_level === 0) {
+                    stockStatus = 'Out of Stock';
+                    stockClass = 'out-of-stock';
+                } else if (product.stock_level <= 10) { // Example for low stock threshold
+                    stockStatus = 'Low Stock';
+                    stockClass = 'low-stock';
+                } else {
+                    stockStatus = 'In Stock';
+                    stockClass = 'in-stock';
+                }
+
+                productCard.innerHTML = `
+                    <div class="product-image-container">
+                        <img src="${product.image_url || 'https://via.placeholder.com/150'}" alt="${product.name}">
+                        <div class="stock-badge ${stockClass}">${stockStatus}</div>
+                    </div>
+                    <div class="product-info">
+                        <h3 class="product-name">${product.name}</h3>
+                        <p class="product-category">${product.category}</p>
+                        <p class="product-description">${product.description || 'No description available.'}</p>
+                        <div class="product-price">₦${product.price.toLocaleString()}</div>
+                        <div class="product-actions">
+                            <button class="add-to-cart-btn" data-product-id="${product.id}" ${product.stock_level === 0 ? 'disabled' : ''}>
+                                <i class="fas fa-cart-plus"></i> Add to Cart
+                            </button>
+                            <div class="quantity-control" style="display: none;">
+                                <button class="quantity-decrease" data-product-id="${product.id}"><i class="fas fa-minus"></i></button>
+                                <span class="quantity-display" data-product-id="${product.id}">1</span>
+                                <button class="quantity-increase" data-product-id="${product.id}"><i class="fas fa-plus"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                productGrid.appendChild(productCard);
+
+                // Add event listeners for add to cart and quantity controls
+                const addToCartBtn = productCard.querySelector(`.add-to-cart-btn[data-product-id="${product.id}"]`);
+                if (addToCartBtn) {
+                    addToCartBtn.addEventListener('click', (e) => addToCart(product, e.target));
+                }
+
+                const quantityControl = productCard.querySelector(`.quantity-control[data-product-id="${product.id}"]`);
+                const quantityDecrease = productCard.querySelector(`.quantity-decrease[data-product-id="${product.id}"]`);
+                const quantityIncrease = productCard.querySelector(`.quantity-increase[data-product-id="${product.id}"]`);
+
+                if (quantityDecrease) {
+                    quantityDecrease.addEventListener('click', () => updateCartQuantity(product.id, -1));
+                }
+                if (quantityIncrease) {
+                    quantityIncrease.addEventListener('click', () => updateCartQuantity(product.id, 1));
+                }
+
+                // Update product card if already in cart
+                const cartItem = cart.find(item => item.id === product.id);
+                if (cartItem) {
+                    toggleQuantityControl(addToCartBtn, quantityControl, true);
+                    productCard.querySelector(`.quantity-display[data-product-id="${product.id}"]`).textContent = cartItem.quantity;
+                }
+            });
+            applyFilters(); // Re-apply filters to correctly display the initial state
+        }
+
+        // Update product statistics
+        function updateProductStats() {
+            const totalProductsCount = document.getElementById('totalProductsCount');
+            const inStockCount = document.getElementById('inStockCount');
+            const lowStockCount = document.getElementById('lowStockCount');
+            const productsStats = document.getElementById('productsStats');
+
+            const inStock = products.filter(p => p.stock_level > 10).length;
+            const lowStock = products.filter(p => p.stock_level > 0 && p.stock_level <= 10).length;
+
+            totalProductsCount.textContent = products.length;
+            inStockCount.textContent = inStock;
+            lowStockCount.textContent = lowStock;
+            productsStats.style.display = 'flex';
+        }
+
+        // Update store status banner
+        function updateStoreStatus() {
+            const storeStatusBanner = document.getElementById('storeStatus');
+            const statusMessage = document.getElementById('statusMessage');
+            const storeHours = document.getElementById('storeHours');
+            const storePhone = document.getElementById('storePhone');
+
+            if (currentLocation) {
+                statusMessage.textContent = `You are shopping from FreshMart ${currentLocation.name}.`;
+                storeHours.textContent = `Mon-Sun: 8:00 AM - 10:00 PM`; // Assuming standard hours for now
+                if (currentLocation.phone) {
+                    storePhone.href = `tel:${currentLocation.phone}`;
+                    storePhone.textContent = `Call ${currentLocation.name}`;
+                    storePhone.style.display = 'inline-block';
+                } else {
+                    storePhone.style.display = 'none';
+                }
+                storeStatusBanner.style.display = 'block';
+            } else {
+                storeStatusBanner.style.display = 'none';
+            }
+        }
+
+        // Toggle delivery info in cart sidebar
+        function updateDeliveryInfo() {
+            const deliveryInfo = document.getElementById('deliveryInfo');
+            deliveryInfo.innerHTML = ''; // Clear previous info
+
+            const deliveryOption = document.createElement('div');
+            deliveryOption.classList.add('delivery-option');
+
+            if (isDelivery && currentLocation) {
+                deliveryOption.innerHTML = `
+                    <i class="fas fa-truck"></i>
+                    <span>Delivery - ₦${currentLocation.deliveryFee.toLocaleString()}</span>
+                `;
+            } else {
+                deliveryOption.innerHTML = `
+                    <i class="fas fa-store"></i>
+                    <span>Pickup - FREE</span>
+                `;
+            }
+            deliveryInfo.appendChild(deliveryOption);
+            updateCartSummary(); // Recalculate summary with new delivery fee
+        }
+
+        // Handle delivery toggle
+        function handleDeliveryToggle() {
+            isDelivery = document.getElementById('deliveryToggle').checked;
+            updateDeliveryInfo();
+            // Show/hide delivery/pickup sections in checkout modal
+            const deliverySection = document.getElementById('deliverySection');
+            const pickupSection = document.getElementById('pickupSection');
+
+            if (isDelivery) {
+                deliverySection.style.display = 'block';
+                pickupSection.style.display = 'none';
+                document.getElementById('deliveryAddress').setAttribute('required', 'true');
+                document.getElementById('pickupTime').removeAttribute('required');
+            } else {
+                deliverySection.style.display = 'none';
+                pickupSection.style.display = 'block';
+                document.getElementById('deliveryAddress').removeAttribute('required');
+                document.getElementById('pickupTime').setAttribute('required', 'true');
+
+                if (currentLocation) {
+                    document.getElementById('pickupLocationName').textContent = currentLocation.name;
+                    document.getElementById('pickupLocationAddress').textContent = currentLocation.address;
+                }
+            }
+        }
+
+        // Add product to cart
+        function addToCart(product, button) {
+            if (!currentLocation) {
+                showNotification('Please select a location first.', 'warning');
+                return;
+            }
+            if (product.stock_level === 0) {
+                showNotification(`${product.name} is out of stock.`, 'error');
+                return;
+            }
+
+            const existingItem = cart.find(item => item.id === product.id);
+            if (existingItem) {
+                if (existingItem.quantity >= product.stock_level) {
+                    showNotification(`Maximum stock reached for ${product.name}.`, 'warning');
+                    return;
+                }
+                existingItem.quantity++;
+            } else {
+                cart.push({ ...product,
+                    quantity: 1
+                });
+            }
+
+            updateCartDisplay();
+            showNotification(`${product.name} added to cart`, 'success');
+
+            // Update product card UI
+            const productCard = button.closest('.product-card');
+            const quantityControl = productCard.querySelector(`.quantity-control[data-product-id="${product.id}"]`);
+            toggleQuantityControl(button, quantityControl, true);
+            productCard.querySelector(`.quantity-display[data-product-id="${product.id}"]`).textContent = (existingItem ? existingItem.quantity : 1);
+        }
+
+        // Update quantity in cart (from product card or cart sidebar)
+        function updateCartQuantity(productId, change) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+
+            const existingItemIndex = cart.findIndex(item => item.id === productId);
+            if (existingItemIndex > -1) {
+                const existingItem = cart[existingItemIndex];
+                const newQuantity = existingItem.quantity + change;
+
+                if (newQuantity <= 0) {
+                    cart.splice(existingItemIndex, 1); // Remove item if quantity is 0 or less
+                } else if (newQuantity > product.stock_level) {
+                    showNotification(`Cannot add more. Only ${product.stock_level} available for ${product.name}.`, 'warning');
+                    return;
+                } else {
+                    existingItem.quantity = newQuantity;
+                }
+            } else if (change > 0) {
+                // If item not in cart but increase button pressed (shouldn't happen with current UI flow but good for robustness)
+                if (product.stock_level === 0) {
+                    showNotification(`${product.name} is out of stock.`, 'error');
+                    return;
+                }
+                cart.push({ ...product,
+                    quantity: 1
+                });
+            }
+
+            updateCartDisplay();
+            updateProductCardQuantityUI(productId);
+            showNotification('Cart updated', 'info');
+        }
+
+        // Remove item from cart
+        function removeFromCart(productId) {
+            cart = cart.filter(item => item.id !== productId);
+            updateCartDisplay();
+            updateProductCardQuantityUI(productId); // Reset product card UI
+            showNotification('Item removed from cart', 'info');
+        }
+
+        // Toggle quantity control on product card
+        function toggleQuantityControl(addButton, quantityControls, show) {
+            if (show) {
+                addButton.style.display = 'none';
+                quantityControls.style.display = 'flex';
+            } else {
+                addButton.style.display = 'block';
+                quantityControls.style.display = 'none';
+            }
+        }
+
+        // Update quantity display on product card
+        function updateProductCardQuantityUI(productId) {
+            const productCard = document.querySelector(`.product-card .add-to-cart-btn[data-product-id="${productId}"]`)?.closest('.product-card');
+            if (!productCard) return;
+
+            const addButton = productCard.querySelector(`.add-to-cart-btn[data-product-id="${productId}"]`);
+            const quantityControl = productCard.querySelector(`.quantity-control[data-product-id="${productId}"]`);
+            const quantityDisplay = productCard.querySelector(`.quantity-display[data-product-id="${productId}"]`);
+
+            const cartItem = cart.find(item => item.id === productId);
+
+            if (cartItem) {
+                toggleQuantityControl(addButton, quantityControl, true);
+                quantityDisplay.textContent = cartItem.quantity;
+            } else {
+                toggleQuantityControl(addButton, quantityControl, false);
+                if (addButton) {
+                    addButton.disabled = products.find(p => p.id === productId)?.stock_level === 0;
+                }
+            }
+        }
+
+        // Update cart display (sidebar and counts)
+        function updateCartDisplay() {
+            const cartItemsContainer = document.getElementById('cartItems');
+            const cartCountElement = document.getElementById('cartCount');
+            const quickCartCountElement = document.getElementById('quickCartCount');
+            const emptyCartMessage = cartItemsContainer.querySelector('.empty-cart');
+            const cartSummary = document.getElementById('cartSummary');
+
+            cartItemsContainer.innerHTML = ''; // Clear existing cart items
+
+            if (cart.length === 0) {
+                if (!emptyCartMessage) { // Add if not already present
+                    cartItemsContainer.innerHTML = `
+                        <div class="empty-cart">
+                            <i class="fas fa-shopping-cart"></i>
+                            <p>Your cart is empty</p>
+                            <small>Add items to get started</small>
+                        </div>
+                    `;
+                }
+                cartSummary.style.display = 'none';
+            } else {
+                cart.forEach(item => {
+                    const cartItemDiv = document.createElement('div');
+                    cartItemDiv.classList.add('cart-item');
+                    cartItemDiv.innerHTML = `
+                        <img src="${item.image_url || 'https://via.placeholder.com/50'}" alt="${item.name}">
+                        <div class="item-details">
+                            <span class="item-name">${item.name}</span>
+                            <span class="item-price">₦${item.price.toLocaleString()}</span>
+                        </div>
+                        <div class="item-quantity-controls">
+                            <button class="quantity-decrease" onclick="updateCartQuantity('${item.id}', -1)">-</button>
+                            <span class="quantity-display">${item.quantity}</span>
+                            <button class="quantity-increase" onclick="updateCartQuantity('${item.id}', 1)">+</button>
+                        </div>
+                        <button class="remove-item" onclick="removeFromCart('${item.id}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    `;
+                    cartItemsContainer.appendChild(cartItemDiv);
+                });
+                cartSummary.style.display = 'block';
+            }
+
+            const totalItemsInCart = cart.reduce((sum, item) => sum + item.quantity, 0);
+            cartCountElement.textContent = totalItemsInCart;
+            quickCartCountElement.textContent = totalItemsInCart;
+            updateCartSummary();
+            saveCart(); // Save cart to local storage
+        }
+
+        // Update cart summary (subtotal, delivery, total)
+        function updateCartSummary() {
+            const subtotalElement = document.getElementById('subtotal');
+            const deliveryFeeElement = document.getElementById('deliveryFee');
+            const totalAmountElement = document.getElementById('totalAmount');
+            const checkoutBtn = document.getElementById('checkoutBtn');
+
+            let subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            let deliveryFee = isDelivery && currentLocation ? currentLocation.deliveryFee : 0;
+            let total = subtotal + deliveryFee;
+
+            subtotalElement.textContent = `₦${subtotal.toLocaleString()}`;
+            deliveryFeeElement.textContent = `₦${deliveryFee.toLocaleString()}`;
+            totalAmountElement.textContent = `₦${total.toLocaleString()}`;
+
+            checkoutBtn.disabled = cart.length === 0;
+        }
+
+        // Toggle cart sidebar visibility
+        function toggleCart() {
+            const cartSidebar = document.getElementById('cartSidebar');
+            const cartOverlay = document.getElementById('cartOverlay');
+            cartSidebar.classList.toggle('open');
+            cartOverlay.classList.toggle('visible');
+        }
+
+        // Open checkout form
+        function showCheckoutForm() {
+            if (cart.length === 0) {
+                showNotification('Your cart is empty. Add items before checking out.', 'warning');
+                return;
+            }
+            if (!currentLocation) {
+                showNotification('Please select a store location first.', 'warning');
+                return;
+            }
+
+            toggleCart(); // Close cart sidebar
+            document.getElementById('checkoutModal').classList.add('open');
+            document.getElementById('modalOverlay').classList.add('visible');
+
+            // Pre-fill customer info if saved
+            loadCustomerData();
+            if (currentCustomer && currentCustomer.name && currentCustomer.phone) {
+                document.getElementById('customerRecognition').style.display = 'block';
+                document.getElementById('returningCustomerName').textContent = currentCustomer.name;
+                document.getElementById('customerName').value = currentCustomer.name;
+                document.getElementById('customerPhone').value = currentCustomer.phone;
+                document.getElementById('customerEmail').value = currentCustomer.email || '';
+                // Hide manual input fields initially if customer is recognized
+                document.getElementById('customerName').closest('.form-group').style.display = 'none';
+                document.getElementById('customerPhone').closest('.form-group').style.display = 'none';
+                document.getElementById('customerEmail').closest('.form-group').style.display = 'none';
+            } else {
+                document.getElementById('customerRecognition').style.display = 'none';
+                document.getElementById('customerName').value = '';
+                document.getElementById('customerPhone').value = '';
+                document.getElementById('customerEmail').value = '';
+                document.getElementById('customerName').closest('.form-group').style.display = 'block';
+                document.getElementById('customerPhone').closest('.form-group').style.display = 'block';
+                document.getElementById('customerEmail').closest('.form-group').style.display = 'block';
+            }
+
+            handleDeliveryToggle(); // Set initial state for delivery/pickup sections
+
+            // Display order summary in checkout
+            const checkoutOrderSummary = document.getElementById('checkoutOrderSummary');
+            checkoutOrderSummary.innerHTML = `
+                <div class="summary-list">
+                    ${cart.map(item => `
+                        <div class="summary-item">
+                            <span>${item.name} x ${item.quantity}</span>
+                            <span>₦${(item.price * item.quantity).toLocaleString()}</span>
+                        </div>
+                    `).join('')}
+                </div>
+                <div class="summary-total-row">
+                    <span>Subtotal:</span>
+                    <span>₦${cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toLocaleString()}</span>
+                </div>
+                <div class="summary-total-row">
+                    <span>${isDelivery ? 'Delivery Fee:' : 'Pickup:'}</span>
+                    <span>${isDelivery ? `₦${(currentLocation ? currentLocation.deliveryFee : 0).toLocaleString()}` : 'FREE'}</span>
+                </div>
+                <div class="summary-total-row final-total">
+                    <span>Total:</span>
+                    <span>₦${(cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) + (isDelivery && currentLocation ? currentLocation.deliveryFee : 0)).toLocaleString()}</span>
+                </div>
+            `;
+        }
+
+        // Close checkout form
+        function closeCheckoutForm() {
+            document.getElementById('checkoutModal').classList.remove('open');
+            document.getElementById('modalOverlay').classList.remove('visible');
+        }
+
+        // Use new customer info in checkout
+        function useNewCustomerInfo() {
+            currentCustomer = null; // Clear recognized customer
+            document.getElementById('customerRecognition').style.display = 'none';
+            document.getElementById('customerName').value = '';
+            document.getElementById('customerPhone').value = '';
+            document.getElementById('customerEmail').value = '';
+            document.getElementById('customerName').closest('.form-group').style.display = 'block';
+            document.getElementById('customerPhone').closest('.form-group').style.display = 'block';
+            document.getElementById('customerEmail').closest('.form-group').style.display = 'block';
+        }
+
+        // Check for returning customer based on phone number
+        async function checkReturningCustomer() {
+            const phone = document.getElementById('customerPhone').value.trim();
+            if (!phone) return;
+
+            try {
+                showLoading(true);
+                const { data, error } = await supabase
+                    .from('customers')
+                    .select('*')
+                    .eq('phone_number', phone)
+                    .single();
+
+                if (error && error.code !== 'PGRST116') { // PGRST116 means no row found
+                    throw error;
+                }
+
+                if (data) {
+                    currentCustomer = data;
+                    document.getElementById('customerRecognition').style.display = 'block';
+                    document.getElementById('returningCustomerName').textContent = data.full_name;
+                    document.getElementById('customerName').value = data.full_name;
+                    document.getElementById('customerEmail').value = data.email || '';
+                    document.getElementById('saveCustomerInfo').checked = true;
+
+                    // Load saved addresses
+                    if (data.saved_addresses && data.saved_addresses.length > 0) {
+                        const addressOptions = document.getElementById('addressOptions');
+                        addressOptions.innerHTML = '';
+                        data.saved_addresses.forEach((addr, index) => {
+                            const radioBtn = document.createElement('input');
+                            radioBtn.type = 'radio';
+                            radioBtn.name = 'savedAddress';
+                            radioBtn.id = `address_${index}`;
+                            radioBtn.value = addr.address;
+                            radioBtn.onchange = () => document.getElementById('deliveryAddress').value = addr.address;
+
+                            const label = document.createElement('label');
+                            label.htmlFor = `address_${index}`;
+                            label.textContent = addr.label ? `${addr.label}: ${addr.address}` : addr.address;
+
+                            addressOptions.appendChild(radioBtn);
+                            addressOptions.appendChild(label);
+                            addressOptions.appendChild(document.createElement('br'));
+                        });
+                        document.getElementById('savedAddresses').style.display = 'block';
+                        document.getElementById('deliveryAddress').value = data.saved_addresses[0].address; // Pre-select first address
+                    } else {
+                        document.getElementById('savedAddresses').style.display = 'none';
+                    }
+                    showNotification(`Welcome back, ${data.full_name}!`, 'info');
+                } else {
+                    currentCustomer = null;
+                    document.getElementById('customerRecognition').style.display = 'none';
+                    document.getElementById('savedAddresses').style.display = 'none';
+                    showNotification('New customer. Please fill in your details.', 'info');
+                }
+            } catch (error) {
+                console.error('Error checking returning customer:', error);
+                showNotification('Failed to check customer data.', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Use new address in checkout
+        function useNewAddress() {
+            document.getElementById('savedAddresses').style.display = 'none';
+            document.getElementById('deliveryAddress').value = '';
+            document.getElementById('saveDeliveryAddress').checked = true;
+        }
+
+        // Submit order
+        async function submitOrder(event) {
+            event.preventDefault();
+
+            if (cart.length === 0) {
+                showNotification('Your cart is empty!', 'error');
+                return;
+            }
+            if (!currentLocation) {
+                showNotification('Please select a store location.', 'error');
+                return;
+            }
+
+            const customerFullName = document.getElementById('customerName').value.trim();
+            const customerPhone = document.getElementById('customerPhone').value.trim();
+            const customerEmail = document.getElementById('customerEmail').value.trim();
+            const saveCustomer = document.getElementById('saveCustomerInfo').checked;
+
+            let deliveryAddress = '';
+            let deliveryInstructions = '';
+            let pickupTime = '';
+            let pickupNotes = '';
+
+            if (isDelivery) {
+                deliveryAddress = document.getElementById('deliveryAddress').value.trim();
+                deliveryInstructions = document.getElementById('deliveryInstructions').value.trim();
+                if (!deliveryAddress) {
+                    showNotification('Delivery address is required for delivery.', 'error');
+                    return;
+                }
+            } else {
+                pickupTime = document.getElementById('pickupTime').value;
+                pickupNotes = document.getElementById('pickupNotes').value.trim();
+                if (!pickupTime) {
+                    showNotification('Preferred pickup time is required for pickup.', 'error');
+                    return;
+                }
+            }
+
+            if (!customerFullName || !customerPhone) {
+                showNotification('Full name and phone number are required.', 'error');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                // 1. Save or update customer data
+                let customerId = currentCustomer ? currentCustomer.id : null;
+                let customerData = {
+                    full_name: customerFullName,
+                    phone_number: customerPhone,
+                    email: customerEmail || null,
+                };
+
+                if (saveCustomer) {
+                    if (customerId) {
+                        const { data, error } = await supabase
+                            .from('customers')
+                            .update(customerData)
+                            .eq('id', customerId)
+                            .select();
+                        if (error) throw error;
+                        currentCustomer = data[0];
+                    } else {
+                        const { data, error } = await supabase
+                            .from('customers')
+                            .insert([customerData])
+                            .select();
+                        if (error) throw error;
+                        currentCustomer = data[0];
+                        customerId = currentCustomer.id;
+                    }
+                    saveCustomerData(currentCustomer); // Save to local storage
+                } else {
+                    currentCustomer = null;
+                    clearCustomerData(); // Clear from local storage
+                }
+
+                // If delivery, save address
+                if (isDelivery && document.getElementById('saveDeliveryAddress').checked && currentCustomer) {
+                    const updatedAddresses = currentCustomer.saved_addresses ? [...currentCustomer.saved_addresses] : [];
+                    if (!updatedAddresses.some(addr => addr.address === deliveryAddress)) {
+                        updatedAddresses.push({
+                            address: deliveryAddress,
+                            label: 'Home'
+                        }); // Simple label for now
+                        await supabase
+                            .from('customers')
+                            .update({ saved_addresses: updatedAddresses })
+                            .eq('id', currentCustomer.id);
+                        currentCustomer.saved_addresses = updatedAddresses; // Update local customer object
+                        saveCustomerData(currentCustomer);
+                    }
+                }
+
+                // 2. Create order record
+                const orderItems = cart.map(item => ({
+                    product_id: item.id,
+                    product_name: item.name,
+                    quantity: item.quantity,
+                    price_at_order: item.price,
+                }));
+
+                const orderTotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0) + (isDelivery && currentLocation ? currentLocation.deliveryFee : 0);
+
+                const { data: orderData, error: orderError } = await supabase
+                    .from('orders')
+                    .insert([{
+                        customer_id: customerId,
+                        customer_name: customerFullName,
+                        customer_phone: customerPhone,
+                        customer_email: customerEmail || null,
+                        location_id: currentLocation.id,
+                        order_type: isDelivery ? 'delivery' : 'pickup',
+                        delivery_address: isDelivery ? deliveryAddress : null,
+                        delivery_instructions: isDelivery ? deliveryInstructions : null,
+                        pickup_time: isDelivery ? null : pickupTime,
+                        pickup_notes: isDelivery ? null : pickupNotes,
+                        total_amount: orderTotal,
+                        delivery_fee: isDelivery ? currentLocation.deliveryFee : 0,
+                        order_status: 'pending',
+                        items: orderItems,
+                        order_date: new Date().toISOString()
+                    }])
+                    .select();
+
+                if (orderError) throw orderError;
+
+                const newOrder = orderData[0];
+                showNotification('Order placed successfully!', 'success');
+
+                // 3. Update product stock levels
+                for (const item of cart) {
+                    const { error: updateError } = await supabase
+                        .from('products')
+                        .update({ stock_level: item.stock_level - item.quantity })
+                        .eq('id', item.id);
+                    if (updateError) console.error(`Failed to update stock for ${item.name}:`, updateError);
+                }
+
+                // 4. Generate WhatsApp message and redirect
+                generateWhatsAppMessage(newOrder);
+
+                // 5. Clear cart and close checkout modal
+                cart = [];
+                saveCart();
+                updateCartDisplay();
+                closeCheckoutForm();
+                // Optionally, refresh products to show updated stock
+                await loadProducts(currentLocation.id);
+
+            } catch (error) {
+                console.error('Order submission failed:', error);
+                showNotification(`Order failed: ${error.message}`, 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Generate WhatsApp message and redirect
+        function generateWhatsAppMessage(order) {
+            const customerName = order.customer_name;
+            const customerPhone = order.customer_phone;
+            const orderId = order.id.substring(0, 8); // Shorten ID for message
+            const orderType = order.order_type === 'delivery' ? 'Delivery' : 'Pickup';
+            const locationName = currentLocation ? currentLocation.name : 'Unknown Location';
+            const totalAmount = `₦${order.total_amount.toLocaleString()}`;
+
+            let message = `Hello FreshMart!%0A%0AI'd like to place an order.%0A%0A*Order Details:*%0A`;
+            message += `*Order ID:* ${orderId}%0A`;
+            message += `*Customer Name:* ${customerName}%0A`;
+            message += `*Phone:* ${customerPhone}%0A`;
+            if (order.customer_email) message += `*Email:* ${order.customer_email}%0A`;
+            message += `*Store:* ${locationName}%0A`;
+            message += `*Order Type:* ${orderType}%0A`;
+
+            if (orderType === 'Delivery') {
+                message += `*Delivery Address:* ${order.delivery_address}%0A`;
+                if (order.delivery_instructions) message += `*Delivery Instructions:* ${order.delivery_instructions}%0A`;
+                message += `*Delivery Fee:* ₦${order.delivery_fee.toLocaleString()}%0A`;
+            } else {
+                message += `*Preferred Pickup Time:* ${order.pickup_time}%0A`;
+                if (order.pickup_notes) message += `*Pickup Notes:* ${order.pickup_notes}%0A`;
+            }
+
+            message += `*Items:*%0A`;
+            order.items.forEach(item => {
+                message += `- ${item.product_name} x ${item.quantity} (₦${item.price_at_order.toLocaleString()}/each)%0A`;
+            });
+
+            message += `%0A*Total Amount:* ${totalAmount}%0A%0A`;
+            message += `Please confirm my order. Thank you!`;
+
+            // Replace with your FreshMart WhatsApp number
+            const whatsappNumber = '2348123456000'; // Example: +2348123456000
+            window.open(`https://wa.me/${whatsappNumber}?text=${message}`, '_blank');
+        }
+
+        // --- Local Storage Management ---
+
+        function saveCart() {
+            localStorage.setItem('freshmart_cart', JSON.stringify(cart));
+        }
+
+        function loadCart() {
+            const savedCart = localStorage.getItem('freshmart_cart');
+            if (savedCart) {
+                cart = JSON.parse(savedCart);
+            }
+            updateCartDisplay();
+        }
+
+        function saveCustomerData(customer) {
+            localStorage.setItem('freshmart_customer', JSON.stringify(customer));
+        }
+
+        function loadCustomerData() {
+            const savedCustomer = localStorage.getItem('freshmart_customer');
+            if (savedCustomer) {
+                currentCustomer = JSON.parse(savedCustomer);
+            }
+            // Populate customer menu if logged in (for simplicity, using local storage for "login")
+            if (currentCustomer) {
+                document.getElementById('customerMenu').style.display = 'block';
+                document.getElementById('customerName').textContent = currentCustomer.full_name.split(' ')[0]; // First name
+            } else {
+                document.getElementById('customerMenu').style.display = 'none';
+            }
+        }
+
+        function clearCustomerData() {
+            localStorage.removeItem('freshmart_customer');
+            currentCustomer = null;
+            document.getElementById('customerMenu').style.display = 'none';
+            showNotification('Your saved data has been cleared.', 'info');
+            closeModal('customerProfileModal');
+        }
+
+        // --- Modals and Overlays ---
+
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.add('open');
+            document.getElementById('modalOverlay').classList.add('visible');
+        }
+
+        function closeModal(modalId) {
+            document.getElementById(modalId).classList.remove('open');
+            if (!document.querySelector('.modal.open')) { // Only hide overlay if no other modals are open
+                document.getElementById('modalOverlay').classList.remove('visible');
+            }
+        }
+
+        function closeAllModals() {
+            document.querySelectorAll('.modal.open').forEach(modal => {
+                modal.classList.remove('open');
+            });
+            document.getElementById('modalOverlay').classList.remove('visible');
+        }
+
+        // Show customer profile modal
+        function showCustomerProfile() {
+            if (!currentCustomer) {
+                showNotification('No customer data saved. Please place an order first.', 'warning');
+                return;
+            }
+
+            const profileInfo = document.getElementById('customerProfileInfo');
+            profileInfo.innerHTML = `
+                <p><strong>Name:</strong> ${currentCustomer.full_name}</p>
+                <p><strong>Phone:</strong> ${currentCustomer.phone_number}</p>
+                <p><strong>Email:</strong> ${currentCustomer.email || 'N/A'}</p>
+            `;
+
+            const savedAddressesList = document.getElementById('savedAddressesList');
+            savedAddressesList.innerHTML = '';
+            if (currentCustomer.saved_addresses && currentCustomer.saved_addresses.length > 0) {
+                currentCustomer.saved_addresses.forEach(addr => {
+                    const p = document.createElement('p');
+                    p.innerHTML = `<i class="fas fa-map-marker-alt"></i> ${addr.label ? `<strong>${addr.label}:</strong> ` : ''}${addr.address}`;
+                    savedAddressesList.appendChild(p);
+                });
+            } else {
+                savedAddressesList.innerHTML = '<p>No saved addresses.</p>';
+            }
+
+            // Placeholder for order statistics
+            const customerOrderStats = document.getElementById('customerOrderStats');
+            customerOrderStats.innerHTML = `
+                <p>Total Orders: Calculating...</p>
+                <p>Last Order Date: N/A</p>
+                <p>Favourite Store: N/A</p>
+            `;
+            // In a real app, you'd fetch this from the 'orders' table for this customer
+
+            showModal('customerProfileModal');
+        }
+
+        // Show order history modal
+        function showOrderHistory() {
+            showModal('orderHistoryModal');
+            document.getElementById('orderHistory').innerHTML = '<p class="empty-state">Enter your phone number above to find your orders.</p>';
+            document.getElementById('orderLookupPhone').value = currentCustomer ? currentCustomer.phone_number : '';
+        }
+
+        // Load order history by phone number
+        async function loadOrderHistoryByPhone() {
+            const phone = document.getElementById('orderLookupPhone').value.trim();
+            const orderHistoryContainer = document.getElementById('orderHistory');
+            orderHistoryContainer.innerHTML = ''; // Clear previous results
+
+            if (!phone) {
+                showNotification('Please enter a phone number.', 'warning');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('customer_phone', phone)
+                    .order('order_date', { ascending: false });
+
+                if (error) throw error;
+
+                if (data.length === 0) {
+                    orderHistoryContainer.innerHTML = '<p class="empty-state">No orders found for this phone number.</p>';
+                    showNotification('No orders found.', 'info');
+                    return;
+                }
+
+                data.forEach(order => {
+                    const orderDiv = document.createElement('div');
+                    orderDiv.classList.add('order-card');
+                    orderDiv.innerHTML = `
+                        <div class="order-header">
+                            <h4>Order ID: #${order.id.substring(0, 8)}</h4>
+                            <span>${new Date(order.order_date).toLocaleDateString()} ${new Date(order.order_date).toLocaleTimeString()}</span>
+                        </div>
+                        <p><strong>Location:</strong> ${order.location_id}</p>
+                        <p><strong>Type:</strong> ${order.order_type.charAt(0).toUpperCase() + order.order_type.slice(1)}</p>
+                        <p><strong>Status:</strong> <span class="order-status-${order.order_status}">${order.order_status.toUpperCase()}</span></p>
+                        <div class="order-items">
+                            <h5>Items:</h5>
+                            <ul>
+                                ${order.items.map(item => `<li>${item.product_name} x ${item.quantity} (₦${item.price_at_order.toLocaleString()})</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="order-summary">
+                            <span>Subtotal: ₦${(order.total_amount - order.delivery_fee).toLocaleString()}</span>
+                            <span>Delivery Fee: ₦${order.delivery_fee.toLocaleString()}</span>
+                            <strong>Total: ₦${order.total_amount.toLocaleString()}</strong>
+                        </div>
+                        <button class="track-order-btn" onclick="showOrderTracking('${order.id}')">Track Order</button>
+                    `;
+                    orderHistoryContainer.appendChild(orderDiv);
+                });
+                showNotification(`Found ${data.length} orders.`, 'success');
+
+            } catch (error) {
+                console.error('Error loading order history:', error);
+                orderHistoryContainer.innerHTML = '<p class="empty-state">Failed to load order history. Please try again.</p>';
+                showNotification('Failed to load order history.', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+
+        // Show order tracking modal
+        function showOrderTracking(orderId = null) {
+            showModal('orderTrackingModal');
+            document.getElementById('trackingResults').innerHTML = '<p class="empty-state">Enter an Order ID or your phone number above to track.</p>';
+            if (orderId) {
+                document.getElementById('trackingInput').value = orderId;
+                trackOrderByInput();
+            } else if (currentCustomer) {
+                document.getElementById('trackingInput').value = currentCustomer.phone_number;
+            }
+        }
+
+        // Track order by input (ID or phone)
+        async function trackOrderByInput() {
+            const input = document.getElementById('trackingInput').value.trim();
+            const trackingResultsContainer = document.getElementById('trackingResults');
+            trackingResultsContainer.innerHTML = '';
+
+            if (!input) {
+                showNotification('Please enter an Order ID or phone number.', 'warning');
+                return;
+            }
+
+            showLoading(true);
+            try {
+                let query;
+                if (input.length === 8 && !isNaN(input)) { // Simple check for potential Order ID (numeric, 8 chars)
+                    // Attempt to match by partial ID
+                    query = supabase
+                        .from('orders')
+                        .select('*')
+                        .ilike('id', `${input}%`);
+                } else {
+                    // Assume phone number
+                    query = supabase
+                        .from('orders')
+                        .select('*')
+                        .eq('customer_phone', input);
+                }
+
+                const { data, error } = await query.order('order_date', { ascending: false });
+
+                if (error) throw error;
+
+                if (data.length === 0) {
+                    trackingResultsContainer.innerHTML = '<p class="empty-state">No matching orders found. Please check the ID or phone number.</p>';
+                    showNotification('No matching orders found.', 'info');
+                    return;
+                }
+
+                data.forEach(order => {
+                    const statusClass = `order-status-${order.order_status.toLowerCase().replace(/\s/g, '-')}`;
+                    trackingResultsContainer.innerHTML += `
+                        <div class="order-tracking-card">
+                            <h4>Order ID: #${order.id.substring(0, 8)}</h4>
+                            <p><strong>Placed On:</strong> ${new Date(order.order_date).toLocaleString()}</p>
+                            <p><strong>Status:</strong> <span class="${statusClass}">${order.order_status.toUpperCase()}</span></p>
+                            ${order.order_type === 'delivery' ? `<p><strong>Delivery Address:</strong> ${order.delivery_address}</p>` : `<p><strong>Pickup Location:</strong> ${currentLocation ? currentLocation.name : 'N/A'}</p>`}
+                            ${order.order_type === 'delivery' && order.tracking_link ? `<p><a href="${order.tracking_link}" target="_blank" class="track-link"><i class="fas fa-truck"></i> View Live Tracking</a></p>` : ''}
+                            ${order.notes ? `<p><strong>Notes:</strong> ${order.notes}</p>` : ''}
+                            <div class="order-tracking-details">
+                                <p>Total: ₦${order.total_amount.toLocaleString()}</p>
+                                <p>Items: ${order.items.map(item => `${item.product_name} x ${item.quantity}`).join(', ')}</p>
+                            </div>
+                        </div>
+                    `;
+                });
+                showNotification(`Found ${data.length} order(s).`, 'success');
+
+            } catch (error) {
+                console.error('Error tracking order:', error);
+                trackingResultsContainer.innerHTML = '<p class="empty-state">Failed to track order. Please try again.</p>';
+                showNotification('Failed to track order.', 'error');
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        // Dummy function for Help & Support
+        function showSupport() {
+            showNotification('For support, please contact us at info@freshmart.ng or call +234 812 345 6000.', 'info', 7000);
+        }
+
+        // --- Utility Functions ---
+
+        // Show/hide loading overlay
+        function showLoading(show) {
+            document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none';
+        }
+
+        // Display notification messages
+        function showNotification(message, type = 'info', duration = 3000) {
+            const container = document.getElementById('notificationContainer');
+            const notification = document.createElement('div');
+            notification.classList.add('notification', type);
+            notification.textContent = message;
+
+            container.appendChild(notification);
+
+            // Trigger reflow to ensure animation plays
+            void notification.offsetWidth;
+
+            notification.classList.add('show');
+
+            setTimeout(() => {
+                notification.classList.remove('show');
+                notification.addEventListener('transitionend', () => notification.remove());
+            }, duration);
+        }
+
+        // Apply filters to products
+        function applyFilters() {
+            let filteredProducts = [...products];
+
+            const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+            const category = document.getElementById('categoryFilter').value;
+            const availability = document.getElementById('availabilityFilter').value;
+            const sortOption = document.getElementById('sortFilter').value;
+
+            // Search filter
+            if (searchTerm) {
+                filteredProducts = filteredProducts.filter(product =>
+                    product.name.toLowerCase().includes(searchTerm) ||
+                    (product.description && product.description.toLowerCase().includes(searchTerm)) ||
+                    product.category.toLowerCase().includes(searchTerm)
+                );
+            }
+
+            // Category filter
+            if (category) {
+                filteredProducts = filteredProducts.filter(product => product.category.toLowerCase() === category.toLowerCase());
+            }
+
+            // Availability filter
+            if (availability) {
+                if (availability === 'in-stock') {
+                    filteredProducts = filteredProducts.filter(product => product.stock_level > 10);
+                } else if (availability === 'low-stock') {
+                    filteredProducts = filteredProducts.filter(product => product.stock_level > 0 && product.stock_level <= 10);
+                } else if (availability === 'out-of-stock') {
+                    filteredProducts = filteredProducts.filter(product => product.stock_level === 0);
+                }
+            }
+
+            // Sort filter
+            if (sortOption) {
+                filteredProducts.sort((a, b) => {
+                    switch (sortOption) {
+                        case 'name':
+                            return a.name.localeCompare(b.name);
+                        case 'price-low':
+                            return a.price - b.price;
+                        case 'price-high':
+                            return b.price - a.price;
+                        case 'stock':
+                            return b.stock_level - a.stock_level;
+                        case 'popularity':
+                            // Assuming 'popularity' is a numerical field or can be simulated
+                            // For now, just a dummy sort if no actual popularity data
+                            return 0;
+                        default:
+                            return 0;
+                    }
+                });
+            }
+
+            renderProducts(filteredProducts);
+            // updateProductStats(); // This would need to reflect only filtered products
+        }
+
+        // Clear all filters
+        function clearAllFilters() {
+            document.getElementById('searchFilter').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('availabilityFilter').value = '';
+            document.getElementById('sortFilter').value = 'name'; // Reset to default sort
+            applyFilters();
+            showNotification('All filters cleared.', 'info');
+        }
+
+        // Refresh product data (re-load from Supabase)
+        async function refreshProductData() {
+            if (currentLocation) {
+                document.getElementById('syncIndicator').style.display = 'inline-flex';
+                await loadProducts(currentLocation.id);
+                document.getElementById('syncIndicator').style.display = 'none';
+                document.getElementById('updateIndicator').style.display = 'block';
+                setTimeout(() => {
+                    document.getElementById('updateIndicator').style.display = 'none';
+                }, 3000);
+            } else {
+                showNotification('Please select a location to refresh products.', 'warning');
+            }
+        }
+
+        // Scroll to products section
+        function scrollToProducts() {
+            document.getElementById('productsSection').scrollIntoView({
+                behavior: 'smooth'
             });
         }
 
-        // PWA Install Prompt
+        // Scroll to top
+        function scrollToTop() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        }
+
+        // Toggle customer dropdown menu
+        function toggleCustomerDropdown() {
+            document.getElementById('customerDropdown').classList.toggle('show');
+        }
+
+        // Close dropdown if clicked outside
+        window.onclick = function(event) {
+            if (!event.target.matches('.customer-btn') && !event.target.closest('.customer-btn')) {
+                const dropdowns = document.getElementsByClassName("customer-dropdown");
+                for (let i = 0; i < dropdowns.length; i++) {
+                    const openDropdown = dropdowns[i];
+                    if (openDropdown.classList.contains('show')) {
+                        openDropdown.classList.remove('show');
+                    }
+                }
+            }
+        }
+
+        // Load theme preference
+        function loadTheme() {
+            const savedTheme = localStorage.getItem('freshmart_theme') || 'light';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            updateThemeToggleButton(savedTheme);
+        }
+
+        // Toggle theme (light/dark)
+        function toggleTheme() {
+            const currentTheme = document.documentElement.getAttribute('data-theme');
+            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', newTheme);
+            localStorage.setItem('freshmart_theme', newTheme);
+            updateThemeToggleButton(newTheme);
+            showNotification(`${newTheme.charAt(0).toUpperCase() + newTheme.slice(1)} mode activated`, 'info');
+        }
+
+        // Update theme toggle button icon
+        function updateThemeToggleButton(theme) {
+            const themeToggleBtn = document.querySelector('.theme-toggle-footer i');
+            if (themeToggleBtn) {
+                if (theme === 'dark') {
+                    themeToggleBtn.classList.remove('fa-moon');
+                    themeToggleBtn.classList.add('fa-sun');
+                } else {
+                    themeToggleBtn.classList.remove('fa-sun');
+                    themeToggleBtn.classList.add('fa-moon');
+                }
+            }
+        }
+
+        // Offline indicator / PWA related
+        window.addEventListener('offline', () => {
+            document.getElementById('offlineIndicator').style.display = 'flex';
+            showNotification('You are currently offline.', 'error', 0);
+        });
+
+        window.addEventListener('online', () => {
+            document.getElementById('offlineIndicator').style.display = 'none';
+            showNotification('You are back online!', 'success');
+            // Optionally re-sync data here
+            if (currentLocation) {
+                refreshProductData();
+            }
+        });
+
+        function retryConnection() {
+            if (navigator.onLine) {
+                document.getElementById('offlineIndicator').style.display = 'none';
+                showNotification('Attempting to re-sync data...', 'info');
+                if (currentLocation) {
+                    refreshProductData();
+                }
+            } else {
+                showNotification('Still offline. Please check your internet connection.', 'error');
+            }
+        }
+
+        // PWA Install Banner
         let deferredPrompt;
         window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent the mini-infobar from appearing on mobile
             e.preventDefault();
+            // Stash the event so it can be triggered later.
             deferredPrompt = e;
-            document.getElementById('installBanner').style.display = 'block';
+            // Update UI to notify the user they can add to home screen
+            document.getElementById('installBanner').style.display = 'flex';
         });
 
         function installApp() {
             if (deferredPrompt) {
+                // Show the install prompt
                 deferredPrompt.prompt();
-                deferredPrompt.userChoice.then((result) => {
-                    if (result.outcome === 'accepted') {
-                        console.log('User accepted the install prompt');
+                // Wait for the user to respond to the prompt
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the A2HS prompt');
+                        showNotification('FreshMart App installed!', 'success');
+                    } else {
+                        console.log('User dismissed the A2HS prompt');
+                        showNotification('App installation dismissed.', 'info');
                     }
+                    // We've used the prompt, and can't use it again, clear it.
                     deferredPrompt = null;
                     document.getElementById('installBanner').style.display = 'none';
                 });
@@ -667,169 +1964,48 @@
 
         function dismissInstallBanner() {
             document.getElementById('installBanner').style.display = 'none';
-            localStorage.setItem('installBannerDismissed', 'true');
+            showNotification('You can install the app anytime from your browser menu.', 'info');
         }
 
-        // Check if banner was previously dismissed
-        if (localStorage.getItem('installBannerDismissed') === 'true') {
-            document.getElementById('installBanner').style.display = 'none';
-        }
-
-        // Online/Offline Detection
-        window.addEventListener('online', function() {
-            document.getElementById('offlineIndicator').style.display = 'none';
-            showNotification('Connection restored', 'success');
-        });
-
-        window.addEventListener('offline', function() {
-            document.getElementById('offlineIndicator').style.display = 'block';
-            showNotification('You are now offline', 'warning');
-        });
-
-        function retryConnection() {
-            if (navigator.onLine) {
-                document.getElementById('offlineIndicator').style.display = 'none';
-                showNotification('Connection restored', 'success');
-                refreshProductData();
-            } else {
-                showNotification('Still offline. Please check your connection.', 'error');
-            }
-        }
-
-        // Theme Toggle
-        function toggleTheme() {
-            const currentTheme = document.documentElement.getAttribute('data-theme');
-            const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-            
-            document.documentElement.setAttribute('data-theme', newTheme);
-            localStorage.setItem('theme', newTheme);
-            
-            const themeIcon = document.querySelector('.theme-toggle-footer i');
-            themeIcon.className = newTheme === 'dark' ? 'fas fa-sun' : 'fas fa-moon';
-            
-            showNotification(`Switched to ${newTheme} theme`, 'info');
-        }
-
-        // Load saved theme
-        const savedTheme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', savedTheme);
-        if (savedTheme === 'dark') {
-            document.querySelector('.theme-toggle-footer i').className = 'fas fa-sun';
-        }
-
-        // Scroll to top function
-        function scrollToTop() {
-            window.scrollTo({
-                top: 0,
-                behavior: 'smooth'
+        // Service Worker Registration for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/service-worker.js')
+                    .then(registration => {
+                        console.log('ServiceWorker registration successful with scope: ', registration.scope);
+                    })
+                    .catch(err => {
+                        console.log('ServiceWorker registration failed: ', err);
+                    });
             });
         }
 
-        // Scroll to products function
-        function scrollToProducts() {
-            document.getElementById('productsSection').scrollIntoView({
-                behavior: 'smooth'
-            });
+        // Initial setup for event listeners
+        function setupEventListeners() {
+            // Load initial cart and customer data
+            loadCart();
+            loadCustomerData();
+
+            // Set up search and filter listeners
+            document.getElementById('searchFilter').addEventListener('input', applyFilters);
+            document.getElementById('categoryFilter').addEventListener('change', applyFilters);
+            document.getElementById('availabilityFilter').addEventListener('change', applyFilters);
+            document.getElementById('sortFilter').addEventListener('change', applyFilters);
+
+            // Handle delivery toggle change
+            document.getElementById('deliveryToggle').addEventListener('change', handleDeliveryToggle);
+
+            // Handle customer recognition input for phone number
+            document.getElementById('customerPhone').addEventListener('blur', checkReturningCustomer);
+
+            // Admin link display (for development/testing, normally behind authentication)
+            // You might want to remove this or add proper authentication logic
+            // For now, if you want to see it, uncomment the line below or set a flag
+            // document.getElementById('adminLink').style.display = 'block';
+
+            // Initial call to update delivery info based on default toggle state
+            handleDeliveryToggle();
         }
-
-        // Show/hide quick actions based on scroll
-        window.addEventListener('scroll', function() {
-            const quickActions = document.getElementById('quickActionsCustomer');
-            if (window.scrollY > 300) {
-                quickActions.style.display = 'flex';
-            } else {
-                quickActions.style.display = 'none';
-            }
-        });
-
-        // Clear all filters function
-        function clearAllFilters() {
-            document.getElementById('searchFilter').value = '';
-            document.getElementById('categoryFilter').value = '';
-            document.getElementById('availabilityFilter').value = '';
-            document.getElementById('sortFilter').value = 'name';
-            
-            // Trigger filter update
-            applyFilters();
-            showNotification('All filters cleared', 'info');
-        }
-
-        // Load more products function (for pagination)
-        function loadMoreProducts() {
-            const loadMoreBtn = document.querySelector('.load-more-btn');
-            const originalText = loadMoreBtn.innerHTML;
-            
-            loadMoreBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-            loadMoreBtn.disabled = true;
-            
-            // Simulate loading delay
-            setTimeout(() => {
-                // In a real app, this would load more products from the server
-                loadMoreBtn.innerHTML = originalText;
-                loadMoreBtn.disabled = false;
-                showNotification('More products loaded', 'success');
-            }, 1000);
-        }
-
-        // Enhanced error handling
-        window.addEventListener('error', function(e) {
-            console.error('Global error:', e.error);
-            showNotification('An error occurred. Please refresh the page.', 'error');
-        });
-
-        // Performance monitoring
-        window.addEventListener('load', function() {
-            const loadTime = performance.now();
-            console.log(`Page loaded in ${Math.round(loadTime)}ms`);
-            
-            // Show performance notification for slow loads
-            if (loadTime > 3000) {
-                showNotification('Page loaded slowly. Consider refreshing for better performance.', 'warning');
-            }
-        });
-
-        // Keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Ctrl/Cmd + K to focus search
-            if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-                e.preventDefault();
-                document.getElementById('searchFilter').focus();
-            }
-            
-            // Escape to close cart
-            if (e.key === 'Escape') {
-                const cartSidebar = document.getElementById('cartSidebar');
-                if (cartSidebar.classList.contains('open')) {
-                    toggleCart();
-                }
-                
-                const checkoutModal = document.getElementById('checkoutModal');
-                if (checkoutModal.classList.contains('active')) {
-                    closeCheckoutForm();
-                }
-            }
-            
-            // Ctrl/Cmd + R to refresh products
-            if ((e.ctrlKey || e.metaKey) && e.key === 'r') {
-                e.preventDefault();
-                refreshProductData();
-            }
-        });
-
-        // Analytics tracking (placeholder)
-        function trackEvent(eventName, eventData) {
-            // In a real app, this would send data to analytics service
-            console.log('Analytics Event:', eventName, eventData);
-        }
-
-        // Track page view
-        trackEvent('page_view', {
-            page: 'home',
-            timestamp: new Date().toISOString()
-        });
     </script>
-
-    <script src="script.js"></script>
 </body>
 </html>
-
