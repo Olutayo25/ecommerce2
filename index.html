@@ -10,6 +10,17 @@
     <meta name="keywords" content="supermarket, grocery, delivery, Lagos, fresh food">
     <link rel="manifest" href="/manifest.json">
     <meta name="theme-color" content="#3498db">
+
+        <!-- Add Supabase CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Add configuration script -->
+    <script>
+        // Supabase configuration
+        const supabaseUrl = 'https://aydlkdolxygxhmtdxins.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF5ZGxrZG9seHlneGhtdGR4aW5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE5NjY5NzMsImV4cCI6MjA2NzU0Mjk3M30.obBDqpr6K40VcQUPkh03ftDXsgIM9X6CDRgZ2hUZrGM';
+        const supabase = window.supabase.createClient(supabaseUrl, supabaseKey);
+    </script>
 </head>
 <body>
     <!-- Header -->
@@ -26,12 +37,7 @@
                         <i class="fas fa-map-marker-alt"></i>
                         <select id="locationSelect">
                             <option value="">Select Location</option>
-                            <option value="ikeja" data-phone="2348123456001" data-address="123 Ikeja Way, Lagos State">Ikeja Branch</option>
-                            <option value="victoria-island" data-phone="2348123456002" data-address="456 Victoria Island, Lagos State">Victoria Island Branch</option>
-                            <option value="surulere" data-phone="2348123456003" data-address="789 Surulere Road, Lagos State">Surulere Branch</option>
-                            <option value="lekki" data-phone="2348123456004" data-address="321 Lekki Phase 1, Lagos State">Lekki Branch</option>
-                            <option value="ajah" data-phone="2348123456005" data-address="654 Ajah Express, Lagos State">Ajah Branch</option>
-                            <option value="yaba" data-phone="2348123456006" data-address="987 Yaba College Road, Lagos State">Yaba Branch</option>
+                            <!-- Locations will be loaded dynamically from Supabase -->
                         </select>
                     </div>
                     
@@ -41,6 +47,26 @@
                             <span class="slider"></span>
                         </label>
                         <span class="delivery-label">Delivery</span>
+                    </div>
+                    
+                    <!-- Customer Quick Access (based on phone) -->
+                    <div class="customer-menu" id="customerMenu" style="display: none;">
+                        <button class="customer-btn" onclick="toggleCustomerDropdown()">
+                            <i class="fas fa-user"></i>
+                            <span id="customerName">Customer</span>
+                            <i class="fas fa-chevron-down"></i>
+                        </button>
+                        <div class="customer-dropdown" id="customerDropdown">
+                            <a href="#" onclick="showOrderHistory()">
+                                <i class="fas fa-history"></i> My Orders
+                            </a>
+                            <a href="#" onclick="showCustomerProfile()">
+                                <i class="fas fa-user"></i> My Info
+                            </a>
+                            <a href="#" onclick="clearCustomerData()">
+                                <i class="fas fa-sign-out-alt"></i> Clear Data
+                            </a>
+                        </div>
                     </div>
                     
                     <div class="refresh-controls">
@@ -249,89 +275,225 @@
         </div>
     </div>
 
-    <!-- Checkout Form Modal -->
-    <div class="checkout-modal" id="checkoutModal">
-        <div class="checkout-content">
-            <div class="checkout-header">
-                <h3><i class="fas fa-clipboard-list"></i> Complete Your Order</h3>
-                <button class="close-checkout" onclick="closeCheckoutForm()">
-                    <i class="fas fa-times"></i>
+<!-- Checkout Form Modal -->
+<div class="checkout-modal" id="checkoutModal">
+    <div class="checkout-content">
+        <div class="checkout-header">
+            <h3><i class="fas fa-clipboard-list"></i> Complete Your Order</h3>
+            <button class="close-checkout" onclick="closeCheckoutForm()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <form id="checkoutForm">
+            <div class="checkout-section">
+                <h4><i class="fas fa-user"></i> Contact Information</h4>
+                
+                <!-- Returning Customer Recognition -->
+                <div class="customer-recognition" id="customerRecognition" style="display: none;">
+                    <div class="welcome-back">
+                        <i class="fas fa-smile"></i>
+                        <span>Welcome back, <strong id="returningCustomerName"></strong>!</span>
+                        <button type="button" class="btn-link" onclick="useNewCustomerInfo()">
+                            Use different info
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Full Name *</label>
+                        <input type="text" id="customerName" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Phone Number *</label>
+                        <input type="tel" id="customerPhone" required placeholder="+234" 
+                               onblur="checkReturningCustomer()">
+                        <small class="form-help">We'll use this to identify you for future orders</small>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Email (Optional)</label>
+                    <input type="email" id="customerEmail" placeholder="your@email.com">
+                    <small class="form-help">For order updates and receipts</small>
+                </div>
+                
+                <!-- Save Customer Info Option -->
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="saveCustomerInfo" checked>
+                        <span class="checkmark"></span>
+                        Save my information for faster checkout next time
+                    </label>
+                </div>
+            </div>
+
+            <div class="checkout-section" id="deliverySection">
+                <h4><i class="fas fa-truck"></i> Delivery Information</h4>
+                
+                <!-- Saved Addresses for Returning Customers -->
+                <div class="saved-addresses" id="savedAddresses" style="display: none;">
+                    <label>Use Saved Address:</label>
+                    <div class="address-options" id="addressOptions">
+                        <!-- Saved addresses will be populated here -->
+                    </div>
+                    <button type="button" class="btn-link" onclick="useNewAddress()">
+                        Use new address
+                    </button>
+                </div>
+                
+                <div class="form-group">
+                    <label>Delivery Address *</label>
+                    <textarea id="deliveryAddress" rows="3" placeholder="Enter your full delivery address"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Delivery Instructions (Optional)</label>
+                    <textarea id="deliveryInstructions" rows="2" placeholder="Any special delivery instructions"></textarea>
+                </div>
+                
+                <!-- Save Address Option -->
+                <div class="form-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="saveDeliveryAddress" checked>
+                        <span class="checkmark"></span>
+                        Save this address for future orders
+                    </label>
+                </div>
+            </div>
+
+            <div class="checkout-section" id="pickupSection" style="display: none;">
+                <h4><i class="fas fa-store"></i> Pickup Information</h4>
+                <div class="pickup-info">
+                    <i class="fas fa-store"></i>
+                    <div>
+                        <strong id="pickupLocationName">Selected Store</strong>
+                        <p id="pickupLocationAddress">Store address will appear here</p>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Preferred Pickup Time</label>
+                    <select id="pickupTime">
+                        <option value="">Select preferred time</option>
+                        <option value="morning">Morning (9AM - 12PM)</option>
+                        <option value="afternoon">Afternoon (12PM - 4PM)</option>
+                        <option value="evening">Evening (4PM - 7PM)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Special Notes (Optional)</label>
+                    <textarea id="pickupNotes" rows="2" placeholder="Any special instructions for pickup"></textarea>
+                </div>
+            </div>
+
+            <div class="checkout-section">
+                <h4><i class="fas fa-receipt"></i> Order Summary</h4>
+                <div id="checkoutOrderSummary"></div>
+            </div>
+
+            <div class="checkout-actions">
+                <button type="button" class="btn-secondary" onclick="closeCheckoutForm()">
+                    <i class="fas fa-arrow-left"></i>
+                    Back to Cart
+                </button>
+                <button type="submit" class="btn-whatsapp">
+                    <i class="fab fa-whatsapp"></i>
+                    Complete Order via WhatsApp
                 </button>
             </div>
-            
-            <form id="checkoutForm">
-                <div class="checkout-section">
-                    <h4><i class="fas fa-user"></i> Contact Information</h4>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Full Name *</label>
-                            <input type="text" id="customerName" required>
-                        </div>
-                        <div class="form-group">
-                            <label>Phone Number *</label>
-                            <input type="tel" id="customerPhone" required placeholder="+234">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Email (Optional)</label>
-                        <input type="email" id="customerEmail" placeholder="your@email.com">
-                    </div>
-                </div>
-
-                <div class="checkout-section" id="deliverySection">
-                    <h4><i class="fas fa-truck"></i> Delivery Information</h4>
-                    <div class="form-group">
-                        <label>Delivery Address *</label>
-                        <textarea id="deliveryAddress" rows="3" placeholder="Enter your full delivery address"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label>Delivery Instructions (Optional)</label>
-                        <textarea id="deliveryInstructions" rows="2" placeholder="Any special delivery instructions"></textarea>
-                    </div>
-                </div>
-
-                <div class="checkout-section" id="pickupSection" style="display: none;">
-                    <h4><i class="fas fa-store"></i> Pickup Information</h4>
-                    <div class="pickup-info">
-                        <i class="fas fa-store"></i>
-                        <div>
-                            <strong id="pickupLocationName">Selected Store</strong>
-                            <p id="pickupLocationAddress">Store address will appear here</p>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>Preferred Pickup Time</label>
-                        <select id="pickupTime">
-                            <option value="">Select preferred time</option>
-                            <option value="morning">Morning (9AM - 12PM)</option>
-                            <option value="afternoon">Afternoon (12PM - 4PM)</option>
-                            <option value="evening">Evening (4PM - 7PM)</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Special Notes (Optional)</label>
-                        <textarea id="pickupNotes" rows="2" placeholder="Any special instructions for pickup"></textarea>
-                    </div>
-                </div>
-
-                <div class="checkout-section">
-                    <h4><i class="fas fa-receipt"></i> Order Summary</h4>
-                    <div id="checkoutOrderSummary"></div>
-                </div>
-
-                <div class="checkout-actions">
-                    <button type="button" class="btn-secondary" onclick="closeCheckoutForm()">
-                        <i class="fas fa-arrow-left"></i>
-                        Back to Cart
-                    </button>
-                    <button type="submit" class="btn-whatsapp">
-                        <i class="fab fa-whatsapp"></i>
-                        Complete Order via WhatsApp
-                    </button>
-                </div>
-            </form>
-        </div>
+        </form>
     </div>
+</div>
+
+                <!-- Customer Profile Modal -->
+            <div class="modal" id="customerProfileModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-user"></i> My Information</h3>
+                        <button class="close-btn" onclick="closeModal('customerProfileModal')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="customer-profile-content">
+                            <div class="profile-section">
+                                <h4>Contact Information</h4>
+                                <div class="profile-info" id="customerProfileInfo">
+                                    <!-- Customer info will be loaded here -->
+                                </div>
+                            </div>
+                            
+                            <div class="profile-section">
+                                <h4>Saved Addresses</h4>
+                                <div class="saved-addresses-list" id="savedAddressesList">
+                                    <!-- Saved addresses will be loaded here -->
+                                </div>
+                            </div>
+                            
+                            <div class="profile-section">
+                                <h4>Order Statistics</h4>
+                                <div class="order-stats" id="customerOrderStats">
+                                    <!-- Order statistics will be loaded here -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Order History Modal -->
+            <div class="modal" id="orderHistoryModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-history"></i> My Orders</h3>
+                        <button class="close-btn" onclick="closeModal('orderHistoryModal')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="order-lookup">
+                            <p>Enter your phone number to view your order history:</p>
+                            <div class="lookup-form">
+                                <input type="tel" id="orderLookupPhone" placeholder="+234 phone number">
+                                <button onclick="loadOrderHistoryByPhone()" class="lookup-btn">
+                                    <i class="fas fa-search"></i> Find Orders
+                                </button>
+                            </div>
+                        </div>
+                        <div id="orderHistory">
+                            <!-- Order history will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Order Tracking Modal -->
+            <div class="modal" id="orderTrackingModal">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-map-marker-alt"></i> Track Order</h3>
+                        <button class="close-btn" onclick="closeModal('orderTrackingModal')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="tracking-lookup">
+                            <p>Enter your order ID or phone number to track your order:</p>
+                            <div class="lookup-form">
+                                <input type="text" id="trackingInput" placeholder="Order ID or phone number">
+                                <button onclick="trackOrderByInput()" class="lookup-btn">
+                                    <i class="fas fa-search"></i> Track
+                                </button>
+                            </div>
+                        </div>
+                        <div id="trackingResults">
+                            <!-- Tracking results will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+    <!-- Modal Overlay -->
+    <div class="modal-overlay" id="modalOverlay" onclick="closeAllModals()"></div>
 
     <!-- Cart Overlay -->
     <div class="cart-overlay" id="cartOverlay" onclick="toggleCart()"></div>
@@ -383,14 +545,13 @@
                 </div>
                 
                 <div class="footer-section">
-                    <h4>Quick Links</h4>
+                    <h4>Customer Service</h4>
                     <ul>
-                        <li><a href="#about">About Us</a></li>
-                        <li><a href="#contact">Contact</a></li>
-                        <li><a href="#locations">Our Locations</a></li>
-                        <li><a href="#delivery">Delivery Info</a></li>
-                        <li><a href="#terms">Terms & Conditions</a></li>
-                        <li><a href="#privacy">Privacy Policy</a></li>
+                        <li><a href="#" onclick="showOrderTracking()">Track My Order</a></li>
+                        <li><a href="#" onclick="showOrderHistory()">My Orders</a></li>
+                        <li><a href="#" onclick="showCustomerProfile()">My Information</a></li>
+                        <li><a href="#" onclick="showSupport()">Help & Support</a></li>
+                        <li><a href="#contact">Contact Us</a></li>
                     </ul>
                 </div>
                 
