@@ -2108,4 +2108,221 @@ console.log('🚀 FreshMart Customer App with Supabase integration fully loaded!
         // Then proceed with original checkout logic
         return originalHandleCheckoutSubmission.call(this, event);
     };
+
+
+// Enhanced checkout with customer recognition
+async function handleCheckoutSubmission(event) {
+    event.preventDefault();
+    
+    try {
+        // Validate form
+        const customerName = document.getElementById('customerName')?.value;
+        const customerPhone = document.getElementById('customerPhone')?.value;
+        const customerEmail = document.getElementById('customerEmail')?.value;
+        
+        if (!customerName || !customerPhone) {
+            showNotification('Please fill in all required fields', 'error');
+            return;
+        }
+        
+        if (!isValidPhoneNumber(customerPhone)) {
+            showNotification('Please enter a valid phone number', 'error');
+            return;
+        }
+        
+        if (customerEmail && !isValidEmail(customerEmail)) {
+            showNotification('Please enter a valid email address', 'error');
+            return;
+        }
+        
+        showLoadingOverlay();
+        
+        // Calculate totals
+        const subtotal = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+        const currentDeliveryFee = isDeliveryMode && subtotal < freeDeliveryThreshold ? deliveryFee : 0;
+        const total = subtotal + currentDeliveryFee;
+        
+        // Prepare order data
+        const orderData = {
+            customer_name: customerName,
+            customer_phone: customerPhone,
+            customer_email: customerEmail || null,
+            location: selectedLocation,
+            status: 'pending',
+            delivery_type: isDeliveryMode ? 'delivery' : 'pickup',
+            delivery_address: isDeliveryMode ? document.getElementById('deliveryAddress')?.value : null,
+            notes: isDeliveryMode ? 
+                document.getElementById('deliveryInstructions')?.value : 
+                document.getElementById('pickupNotes')?.value,
+            total: total
+        };
+        
+        // Save customer data first (this will create/update customer profile)
+        await saveCustomerData(orderData);
+        
+        // Insert order into Supabase
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert([orderData])
+            .select()
+            .single();
+        
+        if (orderError) throw orderError;
+        
+        // Insert order items
+        const orderItems = cart.map(item => ({
+            order_id: order.id,
+            product_name: item.name,
+            quantity: item.quantity,
+            price: item.price
+        }));
+        
+        const { error: itemsError } = await supabase
+            .from('order_items')
+            .insert(orderItems);
+        
+        if (itemsError) throw itemsError;
+        
+        // Update product stock
+        await updateProductStock();
+        
+        // Generate WhatsApp message
+        const whatsappMessage = generateWhatsAppMessage(order, orderItems);
+        const locationInfo = locationData[selectedLocation];
+        const whatsappNumber = locationInfo.phone.replace('+', '');
+        const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(whatsappMessage)}`;
+        
+        // Track order completion
+        await trackEvent('order_completed', {
+            orderId: order.id,
+            customerName: customerName,
+            customerPhone: customerPhone,
+            location: selectedLocation,
+            deliveryType: isDeliveryMode ? 'delivery' : 'pickup',
+            itemCount: cart.reduce((sum, item) => sum + item.quantity, 0),
+            orderValue: total,
+            timestamp: new Date().toISOString()
+        });
+        
+        hideLoadingOverlay();
+        
+        // Open WhatsApp
+        window.open(whatsappUrl, '_blank');
+        
+        // Clear cart and close modals
+        cart = [];
+        updateCartDisplay();
+        updateQuickCartCount();
+        displayProducts();
+        closeCheckoutForm();
+        toggleCart();
+        saveCartToStorage();
+        
+        showNotification(`Order #${order.id} placed successfully! Check WhatsApp for confirmation.`, 'success');
+        
+        // Show customer menu if data was saved
+        if (currentCustomer) {
+            document.getElementById('customerMenu').style.display = 'block';
+            document.getElementById('customerName').textContent = currentCustomer.name;
+        }
+        
+    } catch (error) {
+        hideLoadingOverlay();
+        console.error('Error submitting order:', error);
+        showNotification('Error placing order. Please try again.', 'error');
+    }
+}
+
+// Enhanced reorder function
+async function reorderItems(orderId) {
+    try {
+        const { data: order, error } = await supabase
+            .from('orders')
+            .select(`
+                *,
+                order_items (
+                    product_name,
+                    quantity,
+                    price
+                )
+            `)
+            .eq('id', orderId)
+            .single();
+        
+        if (error) throw error;
+        
+        // Clear current cart
+        cart = [];
+        
+        // Get current products to check availability
+        const { data: currentProducts, error: productsError } = await supabase
+            .from('products')
+            .select('*');
+        
+        if (productsError) throw productsError;
+        
+        // Add items to cart if they're still available
+        let addedItems = 0;
+        let unavailableItems = [];
+        
+        for (const item of order.order_items) {
+            const product = currentProducts.find(p => p.name === item.product_name);
+            if (product) {
+                const availableStock = product.stock[order.location] || 0;
+                const quantityToAdd = Math.min(item.quantity, availableStock);
+                
+                if (quantityToAdd > 0) {
+                    cart.push({
+                        id: product.id,
+                        name: product.name,
+                        price: product.price, // Use current price
+                        unit: product.unit,
+                        quantity: quantityToAdd,
+                        location: order.location
+                    });
+                    addedItems++;
+                    
+                    if (quantityToAdd < item.quantity) {
+                        unavailableItems.push(`${item.product_name} (only ${quantityToAdd} of ${item.quantity} available)`);
+                    }
+                } else {
+                    unavailableItems.push(`${item.product_name} (out of stock)`);
+                }
+            } else {
+                unavailableItems.push(`${item.product_name} (no longer available)`);
+            }
+        }
+        
+        // Set location
+        selectedLocation = order.location;
+        const locationSelect = document.getElementById('locationSelect');
+        if (locationSelect) {
+            locationSelect.value = selectedLocation;
+            locationSelect.dispatchEvent(new Event('change'));
+        }
+        
+        // Update UI
+        updateCartDisplay();
+        updateQuickCartCount();
+        displayProducts();
+        saveCartToStorage();
+        
+        // Show notification about reorder results
+        let message = `${addedItems} items added to cart from previous order`;
+        if (unavailableItems.length > 0) {
+            message += `. Some items were unavailable: ${unavailableItems.join(', ')}`;
+        }
+        showNotification(message, addedItems > 0 ? 'success' : 'warning');
+        
+        // Show cart
+        toggleCart();
+        
+        // Close modal
+        closeAllModals();
+        
+    } catch (error) {
+        console.error('Error reordering:', error);
+        showNotification('Error reordering items', 'error');
+    }
+}
 </script>
